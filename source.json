@@ -1,0 +1,22 @@
+{
+  "name": "FluxDO Source",
+  "identifier": "com.github.lingyan000.fluxdo.AltStore",
+  "apps": [
+    {
+      "name": "FluxDO",
+      "bundleIdentifier": "com.github.lingyan000.fluxdo",
+      "developerName": "lingyan000",
+      "localizedDescription": "A third-party client for LINUX DO community.",
+      "iconURL": "https://lingyan000.github.io/fluxdo/icon.png",
+      "versions": [
+        {
+          "version": "0.1.48",
+          "date": "2026-03-12T07:31:23Z",
+          "downloadURL": "https://github.com/lingyan000/fluxdo/releases/download/v0.1.48/fluxdo-unsigned.ipa",
+          "size": 22610972,
+          "localizedDescription": "- 🚀 CI 修复\n\n- 🚀 MacOS 构建支持\n\n- ✨ 请求策略优化\n\n- 🐛 修复一些场景图片加载失效的问题\n\n- ✨ 数据管理功能，refs #115\n\n- 🚀 Altstore 支持，close #135\n\n- ✨ 优化书签列表显示效果\n\n<div align=center>\n\n[![Release Downloads](https://img.shields.io/github/downloads/lingyan000/fluxdo/v0.1.48/total?style=flat-square&logo=github)](https://img.shields.io/github/downloads/lingyan000/fluxdo/v0.1.48/)\n\n</div>\n\n**Download based on your device:**\n\n<div align=left>\n<table>\n    <thead align=left>\n        <tr>\n            <th>OS</th>\n            <th>Download</th>\n        </tr>\n    </thead>\n    <tbody align=left>\n        <tr>\n        <td>Android</td>\n            <td>\n                <a href=\"https://github.com/lingyan000/fluxdo/releases/download/v0.1.48/fluxdo-arm64-v8a.apk\"><img src=\"https://img.shields.io/badge/APK-ARMv8-168039.svg?logo=android\"></a><br>\n                <a href=\"https://github.com/lingyan000/fluxdo/releases/download/v0.1.48/fluxdo-armeabi-v7a.apk\"><img src=\"https://img.shields.io/badge/APK-ARMv7-45bf55.svg?logo=android\"></a><br>\n                <a href=\"https://github.com/lingyan000/fluxdo/releases/download/v0.1.48/fluxdo-x86_64.apk\"><img src=\"https://img.shields.io/badge/APK-x64-96ed89.svg?logo=android\"></a>\n            </td>\n        </tr>\n        <tr>\n        <td>iOS</td>\n            <td>\n                <a href=\"https://github.com/lingyan000/fluxdo/releases/download/v0.1.48/fluxdo-unsigned.ipa\"><img src=\"https://img.shields.io/badge/IPA-Unsigned-0c6bff.svg?logo=apple\"></a>\n            </td>\n        </tr>\n        <tr>\n        <td>macOS</td>\n            <td>\n                <a href=\"https://github.com/lingyan000/fluxdo/releases/download/v0.1.48/fluxdo-macos-arm64.dmg\"><img src=\"https://img.shields.io/badge/DMG-Apple_Silicon-333333.svg?logo=apple\"></a><br>\n                <a href=\"https://github.com/lingyan000/fluxdo/releases/download/v0.1.48/fluxdo-macos-x86_64.dmg\"><img src=\"https://img.shields.io/badge/DMG-Intel-666666.svg?logo=apple\"></a>"
+        }
+      ]
+    }
+  ]
+}
