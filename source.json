@@ -10,6 +10,13 @@
       "iconURL": "https://lingyan000.github.io/fluxdo/icon.png",
       "versions": [
         {
+          "version": "0.1.49",
+          "date": "2026-03-12T09:35:58Z",
+          "downloadURL": "https://github.com/lingyan000/fluxdo/releases/download/v0.1.49/fluxdo-unsigned.ipa",
+          "size": 22603397,
+          "localizedDescription": "- ✨ 图片链接提取优化\n\n- ✨ AI 助手界面优化，close #136\n\n- ✨ 帖子通知显示支持\n\n- 📝 README 更新\n\n- 🚀 CI 修复\n\n- 🚀 MacOS 构建支持\n\n- ✨ 请求策略优化\n\n- 🐛 修复一些场景图片加载失效的问题\n\n- ✨ 数据管理功能，refs #115\n\n- 🚀 Altstore 支持，close #135\n\n- ✨ 优化书签列表显示效果\n\n<div align=center>\n\n[![Release Downloads](https://img.shields.io/github/downloads/lingyan000/fluxdo/v0.1.49/total?style=flat-square&logo=github)](https://img.shields.io/github/downloads/lingyan000/fluxdo/v0.1.49/)\n\n</div>\n\n**Download based on your device:**\n\n<div align=left>\n<table>\n    <thead align=left>\n        <tr>\n            <th>OS</th>\n            <th>Download</th>\n        </tr>\n    </thead>\n    <tbody align=left>\n        <tr>\n        <td>Android</td>\n            <td>\n                <a href=\"https://github.com/lingyan000/fluxdo/releases/download/v0.1.49/fluxdo-arm64-v8a.apk\"><img src=\"https://img.shields.io/badge/APK-ARMv8-168039.svg?logo=android\"></a><br>\n                <a href=\"https://github.com/lingyan000/fluxdo/releases/download/v0.1.49/fluxdo-armeabi-v7a.apk\"><img src=\"https://img.shields.io/badge/APK-ARMv7-45bf55.svg?logo=android\"></a><br>\n                <a href=\"https://github.com/lingyan000/fluxdo/releases/download/v0.1.49/fluxdo-x86_64.apk\"><img src=\"https://img.shields.io/badge/APK-x64-96ed89.svg?logo=android\"></a>\n            </td>\n        </tr>\n        <tr>\n        <td>iOS</td>\n            <td>"
+        },
+        {
           "version": "0.1.48",
           "date": "2026-03-12T07:31:23Z",
           "downloadURL": "https://github.com/lingyan000/fluxdo/releases/download/v0.1.48/fluxdo-unsigned.ipa",
