@@ -3,10 +3,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../services/network/doh/network_settings_service.dart';
 import '../../services/network/proxy/proxy_settings_service.dart';
+import '../../services/network/rhttp/rhttp_settings_service.dart';
 import '../../services/network/vpn_auto_toggle_service.dart';
+import 'widgets/rhttp_engine_card.dart';
 import 'widgets/http_proxy_card.dart';
 import 'widgets/doh_settings_card.dart';
 import 'widgets/vpn_auto_toggle_card.dart';
+import 'widgets/cf_verify_card.dart';
 import 'widgets/advanced_settings_card.dart';
 import 'widgets/debug_tools_card.dart';
 
@@ -21,6 +24,7 @@ class NetworkSettingsPage extends StatefulWidget {
 class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
   final NetworkSettingsService _service = NetworkSettingsService.instance;
   final ProxySettingsService _proxyService = ProxySettingsService.instance;
+  final RhttpSettingsService _rhttpService = RhttpSettingsService.instance;
   final VpnAutoToggleService _vpnService = VpnAutoToggleService.instance;
   bool _isDeveloperMode = false;
 
@@ -48,6 +52,7 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
         _service.notifier,
         _service.isApplying,
         _proxyService.notifier,
+        _rhttpService.notifier,
         _vpnService.enabledNotifier,
         _vpnService.vpnActiveNotifier,
       ]),
@@ -76,11 +81,21 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
           body: ListView(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             children: [
-              // VPN 自动切换
-              const VpnAutoToggleCard(),
+              // 网络引擎
+              _buildSectionHeader(theme, '网络引擎'),
+              const SizedBox(height: 12),
+              const RhttpEngineCard(),
               const SizedBox(height: 24),
 
-              // 上游 HTTP 代理设置（由本地网关统一转发）
+              // 网络代理
+              _buildSectionHeader(theme, '网络代理'),
+              const SizedBox(height: 12),
+              DohSettingsCard(
+                settings: settings,
+                isApplying: isApplying,
+                isSuppressedByVpn: isDohSuppressed,
+              ),
+              const SizedBox(height: 12),
               HttpProxyCard(
                 proxySettings: proxySettings,
                 dohEnabled: settings.dohEnabled,
@@ -88,21 +103,21 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
               ),
               const SizedBox(height: 24),
 
-              // DOH 开关与服务器列表
-              DohSettingsCard(
-                settings: settings,
-                isApplying: isApplying,
-                isSuppressedByVpn: isDohSuppressed,
-              ),
+              // 辅助功能
+              _buildSectionHeader(theme, '辅助功能'),
+              const SizedBox(height: 12),
+              const VpnAutoToggleCard(),
+              const SizedBox(height: 12),
+              const CfVerifyCard(),
               const SizedBox(height: 24),
 
-              // 高级设置
+              // 高级
               _buildSectionHeader(theme, '高级'),
               const SizedBox(height: 12),
               const AdvancedSettingsCard(),
               const SizedBox(height: 24),
 
-              // 调试工具
+              // 调试
               _buildSectionHeader(theme, '调试'),
               const SizedBox(height: 12),
               DebugToolsCard(isDeveloperMode: _isDeveloperMode),

@@ -96,6 +96,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.1.2"
+  build_cli_annotations:
+    dependency: transitive
+    description:
+      name: build_cli_annotations
+      sha256: e563c2e01de8974566a1998410d3f6f03521788160a02503b0b1f1a46c7b3d95
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.1.1"
   cached_network_image:
     dependency: "direct main"
     description:
@@ -304,6 +312,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "5.9.0"
+  dio_compatibility_layer:
+    dependency: "direct main"
+    description:
+      name: dio_compatibility_layer
+      sha256: "73ffce50133cc30a51a3b1ea20acf13b2df28e1671673188a04f671102e6fba1"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.1.1"
   dio_cookie_manager:
     dependency: "direct main"
     description:
@@ -737,6 +753,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.1.0"
+  flutter_rust_bridge:
+    dependency: transitive
+    description:
+      name: flutter_rust_bridge
+      sha256: "37ef40bc6f863652e865f0b2563ea07f0d3c58d8efad803cc01933a4b2ee067e"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.11.1"
   flutter_secure_storage:
     dependency: "direct main"
     description:
@@ -1529,6 +1553,15 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.0.3"
+  rhttp:
+    dependency: "direct main"
+    description:
+      path: rhttp
+      ref: HEAD
+      resolved-ref: c2d2f87b196089d7573556684dab6d47b4e88c5c
+      url: "https://github.com/Lingyan000/rhttp_plus.git"
+    source: git
+    version: "0.15.1"
   riverpod:
     dependency: transitive
     description:

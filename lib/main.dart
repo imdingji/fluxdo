@@ -29,6 +29,8 @@ import 'services/toast_service.dart';
 import 'services/preloaded_data_service.dart';
 import 'services/network/doh/network_settings_service.dart';
 import 'services/network/proxy/proxy_settings_service.dart';
+import 'services/network/rhttp/rhttp_settings_service.dart';
+import 'package:rhttp/rhttp.dart' as rhttp;
 import 'services/network/vpn_auto_toggle_service.dart';
 import 'services/network/doh_proxy/proxy_certificate.dart';
 import 'services/cf_challenge_logger.dart';
@@ -58,6 +60,12 @@ import 'widgets/layout/adaptive_scaffold.dart';
 import 'widgets/layout/adaptive_navigation.dart';
 import 'widgets/read_later/read_later_bubble.dart';
 import 'providers/read_later_provider.dart';
+
+/// 初始化 rhttp Rust runtime
+Future<bool> _initRhttp() async {
+  await rhttp.Rhttp.init();
+  return true;
+}
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -98,6 +106,22 @@ Future<void> main() async {
       const MethodChannel('com.github.lingyan000.fluxdo/crashlytics')
           .invokeMethod('setCrashlyticsEnabled', {'enabled': true}),
   ]);
+  // rhttp (Rust reqwest) 初始化：在 ProxySettingsService 之后、NetworkSettingsService 之前
+  await RhttpSettingsService.instance.initialize(prefs);
+  try {
+    final rhttp = await Future.any([
+      _initRhttp(),
+      Future.delayed(const Duration(seconds: 5), () => false),
+    ]);
+    if (rhttp != true) {
+      debugPrint('[rhttp] 初始化超时或失败');
+      await RhttpSettingsService.instance.forceDisable();
+    }
+  } catch (e) {
+    debugPrint('[rhttp] 初始化异常: $e');
+    await RhttpSettingsService.instance.forceDisable();
+  }
+
   await NetworkSettingsService.instance.initialize(prefs);
   VpnAutoToggleService.instance.initialize(prefs);
   try {

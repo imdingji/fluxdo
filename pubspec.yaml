@@ -84,6 +84,11 @@ dependencies:
 
   chewie: any
   video_player: any
+  rhttp:
+    git:
+      url: https://github.com/Lingyan000/rhttp_plus.git
+      path: rhttp
+  dio_compatibility_layer: ^0.1.1
   ffi: any
 dependency_overrides:
   # super_clipboard 0.9.1 要求 device_info_plus <12.0.0，

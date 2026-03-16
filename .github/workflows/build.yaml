@@ -59,8 +59,16 @@ jobs:
           cache: true
 
       - name: Setup Rust
-        if: startsWith(matrix.platform, 'android') || matrix.platform == 'macos'
+        if: startsWith(matrix.platform, 'android') || matrix.platform == 'macos' || matrix.platform == 'ios'
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup iOS Rust targets
+        if: matrix.platform == 'ios'
+        run: rustup target add aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios
+
+      - name: Setup macOS Rust targets
+        if: matrix.platform == 'macos'
+        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
 
       - name: Setup Android build environment
         if: startsWith(matrix.platform, 'android')

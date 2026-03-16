@@ -7,6 +7,7 @@ import 'adapters/platform_adapter.dart';
 import 'cookie/app_cookie_manager.dart';
 import 'cookie/cookie_jar_service.dart';
 import 'cookie/cookie_sync_service.dart';
+import 'interceptors/gateway_proxy_interceptor.dart';
 import 'interceptors/cf_challenge_interceptor.dart';
 import 'interceptors/request_scheduler_interceptor.dart';
 import 'interceptors/session_guard_interceptor.dart';
@@ -42,6 +43,9 @@ class DiscourseDio {
 
     // 1. 配置平台适配器
     configurePlatformAdapter(dio);
+
+    // 1.5 Gateway 反向代理拦截器（ECH 时改写 URL 到 localhost）
+    dio.interceptors.add(GatewayProxyInterceptor());
 
     // 2. 会话代守卫（最先执行，确保过期请求不进入后续拦截器）
     dio.interceptors.add(SessionGuardInterceptor());

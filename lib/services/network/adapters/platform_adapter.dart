@@ -7,8 +7,10 @@ import 'package:native_dio_adapter/native_dio_adapter.dart';
 
 import '../doh/network_settings_service.dart';
 import '../proxy/proxy_settings_service.dart';
+import '../rhttp/rhttp_settings_service.dart';
 import 'cronet_fallback_service.dart';
 import 'network_http_adapter.dart';
+import 'rhttp_adapter.dart';
 import 'webview_http_adapter.dart';
 
 /// 当前使用的适配器类型
@@ -16,6 +18,7 @@ enum AdapterType {
   webview, // WebView 适配器（Windows）
   native, // Native 适配器（Cronet/Cupertino）
   network, // Network 适配器（通过代理）
+  rhttp, // rhttp 引擎（Rust reqwest）
 }
 
 /// 全局变量：记录当前使用的适配器类型
@@ -33,6 +36,8 @@ String getAdapterDisplayName(AdapterType type) {
       return Platform.isAndroid ? 'Cronet 适配器' : 'Cupertino 适配器';
     case AdapterType.network:
       return 'Network 适配器';
+    case AdapterType.rhttp:
+      return 'rhttp 引擎';
   }
 }
 
@@ -41,6 +46,7 @@ void configurePlatformAdapter(Dio dio) {
   final settings = NetworkSettingsService.instance;
   final proxySettings = ProxySettingsService.instance;
   final fallbackService = CronetFallbackService.instance;
+  final rhttpSettings = RhttpSettingsService.instance;
 
   if (Platform.isWindows) {
     // Windows: 始终使用 WebView 适配器
@@ -52,8 +58,14 @@ void configurePlatformAdapter(Dio dio) {
       settings,
       proxySettings,
       fallbackService,
+      rhttpSettings,
     );
-    _currentAdapterType = _resolveAdapterType(settings, proxySettings, fallbackService);
+    _currentAdapterType = _resolveAdapterType(
+      settings,
+      proxySettings,
+      fallbackService,
+      rhttpSettings,
+    );
   }
 }
 
@@ -72,8 +84,13 @@ AdapterType _resolveAdapterType(
   NetworkSettingsService settings,
   ProxySettingsService proxySettings,
   CronetFallbackService fallbackService,
+  RhttpSettingsService rhttpSettings,
 ) {
-  // 代理或 DOH 启用时使用 NetworkHttpAdapter（通过本地 Rust 网关转发）
+  // rhttp 优先（满足条件时）
+  if (rhttpSettings.shouldUseRhttp(settings.current, proxySettings.current)) {
+    return AdapterType.rhttp;
+  }
+  // MITM 代理模式（ECH、Cronet 降级、rhttp 未启用时的 DOH/代理）
   if (settings.shouldRunLocalProxy || fallbackService.hasFallenBack) {
     return AdapterType.network;
   }
@@ -99,20 +116,26 @@ HttpClientAdapter _createNativeAdapter() {
 
 /// 动态适配器：每次请求时根据设置 version 变化自动切换底层适配器
 ///
-/// Android 上在 network ↔ native（Cronet）之间切换；
-/// iOS/macOS/Linux 上在 network ↔ native（Cupertino/IO）之间切换。
-/// 解决了非 Android 平台切换 DOH/代理后必须重启的问题。
+/// Android 上在 rhttp ↔ network ↔ native（Cronet）之间切换；
+/// iOS/macOS/Linux 上在 rhttp ↔ network ↔ native（Cupertino/IO）之间切换。
 class _DynamicAdapter implements HttpClientAdapter {
-  _DynamicAdapter(this._settings, this._proxySettings, this._fallbackService);
+  _DynamicAdapter(
+    this._settings,
+    this._proxySettings,
+    this._fallbackService,
+    this._rhttpSettings,
+  );
 
   final NetworkSettingsService _settings;
   final ProxySettingsService _proxySettings;
   final CronetFallbackService _fallbackService;
+  final RhttpSettingsService _rhttpSettings;
 
   HttpClientAdapter? _delegate;
   AdapterType? _delegateType;
   int _settingsVersion = -1;
   int _proxyVersion = -1;
+  int _rhttpVersion = -1;
   bool _hasFallenBack = false;
   bool _closed = false;
 
@@ -134,15 +157,18 @@ class _DynamicAdapter implements HttpClientAdapter {
       _settings,
       _proxySettings,
       _fallbackService,
+      _rhttpSettings,
     );
     final settingsVersion = _settings.version;
     final proxyVersion = _proxySettings.version;
+    final rhttpVersion = _rhttpSettings.version;
     final hasFallenBack = _fallbackService.hasFallenBack;
 
     final shouldRebuild = _delegate == null ||
         _delegateType != desiredType ||
         _settingsVersion != settingsVersion ||
         _proxyVersion != proxyVersion ||
+        _rhttpVersion != rhttpVersion ||
         _hasFallenBack != hasFallenBack;
 
     if (!shouldRebuild) {
@@ -151,7 +177,10 @@ class _DynamicAdapter implements HttpClientAdapter {
 
     // 不要强杀旧 delegate，避免进行中的 Cronet 请求触发 native 崩溃。
     _delegate?.close(force: false);
-    if (desiredType == AdapterType.network) {
+    if (desiredType == AdapterType.rhttp) {
+      _delegate = RhttpAdapter(_settings, _proxySettings);
+      debugPrint('[DIO] Dynamic adapter -> RhttpAdapter');
+    } else if (desiredType == AdapterType.network) {
       _delegate = NetworkHttpAdapter(_settings, _proxySettings);
       debugPrint('[DIO] Dynamic adapter -> NetworkHttpAdapter');
     } else {
@@ -162,6 +191,7 @@ class _DynamicAdapter implements HttpClientAdapter {
     _delegateType = desiredType;
     _settingsVersion = settingsVersion;
     _proxyVersion = proxyVersion;
+    _rhttpVersion = rhttpVersion;
     _hasFallenBack = hasFallenBack;
     _currentAdapterType = desiredType;
     return _delegate!;

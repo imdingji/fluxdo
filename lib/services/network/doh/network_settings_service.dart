@@ -7,40 +7,53 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart' as inappwebview;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../constants.dart';
+import '../doh_proxy/doh_proxy_ffi.dart';
 import '../doh_proxy/doh_proxy_service.dart';
 import '../proxy/proxy_settings_service.dart';
+import '../rhttp/rhttp_settings_service.dart';
 import 'doh_resolver.dart';
 
 class NetworkSettings {
   const NetworkSettings({
     required this.dohEnabled,
     required this.selectedServerUrl,
+    this.echServerUrl,
     required this.customServers,
     required this.proxyPort,
     this.preferIPv6 = false,
+    this.serverIp,
   });
 
   final bool dohEnabled;
+  /// DNS 解析服务器（A/AAAA 查询）
   final String selectedServerUrl;
+  /// ECH 配置服务器（HTTPS 记录查询），null = 与 DNS 相同
+  final String? echServerUrl;
   final List<DohServer> customServers;
   /// 代理端口（Rust 代理统一处理 DOH + ECH）
   final int? proxyPort;
   /// 优先使用 IPv6
   final bool preferIPv6;
+  /// 全局 server IP（指定后跳过 DNS 解析直接连接）
+  final String? serverIp;
 
   NetworkSettings copyWith({
     bool? dohEnabled,
     String? selectedServerUrl,
+    String? Function()? echServerUrl,
     List<DohServer>? customServers,
     int? proxyPort,
     bool? preferIPv6,
+    String? Function()? serverIp,
   }) {
     return NetworkSettings(
       dohEnabled: dohEnabled ?? this.dohEnabled,
       selectedServerUrl: selectedServerUrl ?? this.selectedServerUrl,
+      echServerUrl: echServerUrl != null ? echServerUrl() : this.echServerUrl,
       customServers: customServers ?? this.customServers,
       proxyPort: proxyPort ?? this.proxyPort,
       preferIPv6: preferIPv6 ?? this.preferIPv6,
+      serverIp: serverIp != null ? serverIp() : this.serverIp,
     );
   }
 }
@@ -51,7 +64,6 @@ class DohServer {
     required this.url,
     this.bootstrapIps = const [],
     this.isCustom = false,
-    this.serverIp,
   });
 
   final String name;
@@ -60,14 +72,11 @@ class DohServer {
   /// Chrome 也是这样做的：预置 DOH 服务器的 IP，直接用 IP 连接
   final List<String> bootstrapIps;
   final bool isCustom;
-  /// 可选的服务端 IP 地址，指定后跳过 DNS 解析直接连接
-  final String? serverIp;
 
   Map<String, dynamic> toJson() => {
         'name': name,
         'url': url,
         if (bootstrapIps.isNotEmpty) 'bootstrapIps': bootstrapIps,
-        if (serverIp != null && serverIp!.isNotEmpty) 'serverIp': serverIp,
       };
 
   static DohServer fromJson(Map<String, dynamic> json) {
@@ -77,7 +86,6 @@ class DohServer {
       url: json['url']?.toString() ?? '',
       bootstrapIps: ips is List ? ips.cast<String>() : const [],
       isCustom: true,
-      serverIp: json['serverIp']?.toString(),
     );
   }
 }
@@ -85,6 +93,7 @@ class DohServer {
 class NetworkSettingsService {
   NetworkSettingsService._internal() {
     _proxyService.notifier.addListener(_handleProxySettingsChanged);
+    RhttpSettingsService.instance.notifier.addListener(_handleRhttpSettingsChanged);
   }
 
   static final NetworkSettingsService instance = NetworkSettingsService._internal();
@@ -94,6 +103,8 @@ class NetworkSettingsService {
   static const _dohCustomKey = 'doh_custom';
   static const _proxyPortKey = 'doh_proxy_port';
   static const _preferIPv6Key = 'doh_prefer_ipv6';
+  static const _serverIpKey = 'doh_server_ip';
+  static const _echServerKey = 'doh_ech_server';
 
   final ValueNotifier<NetworkSettings> notifier = ValueNotifier(
     NetworkSettings(
@@ -116,6 +127,7 @@ class NetworkSettingsService {
   bool _lastStartFailed = false;
   bool _wasRunningBeforeApply = false;
   bool _pendingStart = false;
+  Uint8List? _echConfigCache;
 
   final ValueNotifier<bool> isApplying = ValueNotifier(false);
 
@@ -128,8 +140,17 @@ class NetworkSettingsService {
   /// 获取代理服务（优先使用 Rust 代理）
   DohProxyService get proxyService => _rustProxyService;
 
+  /// 缓存的 ECH 配置字节（供 rhttp ECH 直连使用）
+  Uint8List? get echConfigCache => _echConfigCache;
+
   NetworkSettings get current => notifier.value;
 
+  /// 当前是否使用 gateway（反向代理）模式
+  bool get isGatewayMode =>
+      current.dohEnabled && current.echServerUrl != null && _rustProxyService.isRunning;
+
+  // Rust 代理始终为 WebView 提供 DOH/代理支持，不受 rhttp 影响
+  // rhttp 只改变 Dio 用哪个适配器，不改变代理生命周期
   bool get shouldRunLocalProxy => current.dohEnabled || _proxyService.current.isValid;
 
   List<DohServer> get servers => [
@@ -147,13 +168,17 @@ class NetworkSettingsService {
     final proxyPort = prefs.getInt(_proxyPortKey);
     await prefs.remove('doh_multi_ip');
     final preferIPv6 = prefs.getBool(_preferIPv6Key) ?? false;
+    final serverIp = prefs.getString(_serverIpKey);
+    final echServer = prefs.getString(_echServerKey);
     final resolvedSelected = _resolveSelected(selected, custom);
     notifier.value = NetworkSettings(
       dohEnabled: dohEnabled,
       selectedServerUrl: resolvedSelected,
+      echServerUrl: echServer,
       customServers: custom,
       proxyPort: proxyPort,
       preferIPv6: preferIPv6,
+      serverIp: serverIp,
     );
     _resolver = DohResolver(
       serverUrl: notifier.value.selectedServerUrl,
@@ -256,6 +281,33 @@ class NetworkSettingsService {
     _touch();
   }
 
+  Future<void> setServerIp(String? ip) async {
+    final prefs = _prefs;
+    if (prefs == null) return;
+    final trimmed = ip?.trim();
+    final value = (trimmed != null && trimmed.isNotEmpty) ? trimmed : null;
+    notifier.value = notifier.value.copyWith(serverIp: () => value);
+    if (value != null) {
+      await prefs.setString(_serverIpKey, value);
+    } else {
+      await prefs.remove(_serverIpKey);
+    }
+    _scheduleApplyProxyState();
+    _touch();
+  }
+
+  Future<void> setEchServer(String? url) async {
+    final prefs = _prefs;
+    if (prefs == null) return;
+    notifier.value = notifier.value.copyWith(echServerUrl: () => url);
+    if (url != null) {
+      await prefs.setString(_echServerKey, url);
+    } else {
+      await prefs.remove(_echServerKey);
+    }
+    _scheduleApplyProxyState();
+    _touch();
+  }
 
   Future<void> _applyProxyState() async {
     final startedAt = DateTime.now();
@@ -303,15 +355,27 @@ class NetworkSettingsService {
     try {
       final upstream = _proxyService.current;
 
-      // 启动 Rust 代理（内部处理 DOH + ECH + 上游代理）
-      // DOH + Shadowsocks 共存时，DOH 查询走直连，实际连接走 SS
-      final selectedServer = _findServer(current.selectedServerUrl);
+      // ECH 场景：查询 ECH 配置供 rhttp 直连使用，同时 gateway 模式作为 WebView 后备
+      final hasEch = current.dohEnabled && current.echServerUrl != null;
+      final useGateway = hasEch;
+
+      // 异步获取 ECH 配置（rhttp 直连用）
+      if (hasEch && _echConfigCache == null) {
+        _refreshEchConfig();
+      }
+      if (!hasEch) {
+        _echConfigCache = null;
+      }
+
+      // Rust 代理始终为 WebView 提供 DOH/代理支持，enableDoh 不受 rhttp 影响
       final success = await _rustProxyService.start(
         preferredPort: current.proxyPort ?? 0,
         enableDoh: current.dohEnabled,
+        gatewayMode: useGateway,
         preferIPv6: current.preferIPv6,
         dohServer: current.dohEnabled ? current.selectedServerUrl : null,
-        serverIp: selectedServer?.serverIp,
+        dohServerEch: current.dohEnabled ? current.echServerUrl : null,
+        serverIp: current.serverIp,
         upstreamProtocol: upstream.isValid ? upstream.protocol.storageValue : null,
         upstreamHost: upstream.isValid ? upstream.host : null,
         upstreamPort: upstream.isValid ? upstream.port : null,
@@ -431,6 +495,29 @@ class NetworkSettingsService {
   }
 
   void _handleProxySettingsChanged() {
+    if (_prefs == null) return;
+    _scheduleApplyProxyState();
+    _touch();
+  }
+
+  void _refreshEchConfig() {
+    // 在 Isolate 中调用 FFI 查询 ECH 配置（阻塞操作）
+    final host = testHost;
+    final dohServer = current.echServerUrl ?? current.selectedServerUrl;
+    // 异步查询，完成后触发适配器重建
+    Future(() {
+      final bytes = DohProxyFfi.instance.lookupEchConfig(host, dohServer);
+      if (bytes != null && bytes.isNotEmpty) {
+        debugPrint('[DOH] ECH 配置已获取 (${bytes.length} bytes)');
+        _echConfigCache = bytes;
+        _touch();
+      } else {
+        debugPrint('[DOH] ECH 配置查询失败或为空');
+      }
+    });
+  }
+
+  void _handleRhttpSettingsChanged() {
     if (_prefs == null) return;
     _scheduleApplyProxyState();
     _touch();

@@ -54,7 +54,9 @@ class DohProxyService {
     int preferredPort = 0,
     bool enableDoh = true,
     bool preferIPv6 = false,
+    bool gatewayMode = false,
     String? dohServer,
+    String? dohServerEch,
     String? serverIp,
     String? upstreamProtocol,
     String? upstreamHost,
@@ -89,11 +91,13 @@ class DohProxyService {
 
     // 根据平台选择启动方式
     if (DohProxyFfi.isAvailable) {
-      return _startWithFfi(
+      final result = await _startWithFfi(
         preferredPort,
         enableDoh,
+        gatewayMode,
         preferIPv6,
         dohServer,
+        dohServerEch,
         serverIp,
         upstreamProtocol,
         upstreamHost,
@@ -102,12 +106,35 @@ class DohProxyService {
         upstreamPassword,
         upstreamCipher,
       );
+      // 桌面平台 FFI 加载失败时，回退到进程模式
+      if (!result && DohProxyFfi.canFallbackToProcess) {
+        NetworkLogger.log('[DOH] FFI 启动失败，尝试进程模式');
+        _lastError = null;
+        return _startWithProcess(
+          preferredPort,
+          enableDoh,
+          gatewayMode,
+          preferIPv6,
+          dohServer,
+          dohServerEch,
+          serverIp,
+          upstreamProtocol,
+          upstreamHost,
+          upstreamPort,
+          upstreamUsername,
+          upstreamPassword,
+          upstreamCipher,
+        );
+      }
+      return result;
     } else {
       return _startWithProcess(
         preferredPort,
         enableDoh,
+        gatewayMode,
         preferIPv6,
         dohServer,
+        dohServerEch,
         serverIp,
         upstreamProtocol,
         upstreamHost,
@@ -123,8 +150,10 @@ class DohProxyService {
   Future<bool> _startWithFfi(
     int port,
     bool enableDoh,
+    bool gatewayMode,
     bool preferIPv6,
     String? dohServer,
+    String? dohServerEch,
     String? serverIp,
     String? upstreamProtocol,
     String? upstreamHost,
@@ -144,8 +173,10 @@ class DohProxyService {
         final resultPort = await _callFfiStart(
           port: port,
           enableDoh: enableDoh,
+          gatewayMode: gatewayMode,
           preferIpv6: preferIPv6,
           dohServer: dohServer,
+          dohServerEch: dohServerEch,
           serverIp: serverIp,
           upstreamProtocol: upstreamProtocol,
           upstreamHost: upstreamHost,
@@ -189,8 +220,10 @@ class DohProxyService {
   Future<bool> _startWithProcess(
     int preferredPort,
     bool enableDoh,
+    bool gatewayMode,
     bool preferIPv6,
     String? dohServer,
+    String? dohServerEch,
     String? serverIp,
     String? upstreamProtocol,
     String? upstreamHost,
@@ -215,10 +248,15 @@ class DohProxyService {
       final args = <String>[
         preferredPort.toString(),
         if (!enableDoh) '--no-doh',
+        if (gatewayMode) '--gateway',
         if (preferIPv6) '--ipv6',
         if (dohServer != null && dohServer.isNotEmpty) ...[
           '--doh',
           dohServer,
+        ],
+        if (dohServerEch != null && dohServerEch.isNotEmpty) ...[
+          '--doh-server-ech',
+          dohServerEch,
         ],
         if (serverIp != null && serverIp.isNotEmpty) ...[
           '--server-ip',
@@ -395,15 +433,27 @@ class DohProxyService {
     }
 
     // 查找可执行文件的可能位置
+    final execPath = Platform.resolvedExecutable;
     final possiblePaths = <String>[
-      // 开发时：core/doh_proxy/target/release/
-      p.join(Directory.current.path, 'core', 'doh_proxy', 'target', 'release', executableName),
-      // 开发时：core/doh_proxy/target/debug/
-      p.join(Directory.current.path, 'core', 'doh_proxy', 'target', 'debug', executableName),
       // 打包后：与应用程序同目录
-      p.join(p.dirname(Platform.resolvedExecutable), executableName),
+      p.join(p.dirname(execPath), executableName),
       // 打包后：assets 目录
-      p.join(p.dirname(Platform.resolvedExecutable), 'data', 'flutter_assets', 'assets', executableName),
+      p.join(p.dirname(execPath), 'data', 'flutter_assets', 'assets', executableName),
+      // 开发时：通过 app bundle 路径反推项目根目录
+      ...() {
+        final buildIdx = execPath.indexOf('${p.separator}build${p.separator}');
+        if (buildIdx > 0) {
+          final projectRoot = execPath.substring(0, buildIdx);
+          return [
+            p.join(projectRoot, 'core', 'doh_proxy', 'target', 'release', executableName),
+            p.join(projectRoot, 'core', 'doh_proxy', 'target', 'debug', executableName),
+          ];
+        }
+        return <String>[];
+      }(),
+      // 开发时：CWD 可能是项目根目录
+      p.join(Directory.current.path, 'core', 'doh_proxy', 'target', 'release', executableName),
+      p.join(Directory.current.path, 'core', 'doh_proxy', 'target', 'debug', executableName),
     ];
 
     for (final path in possiblePaths) {
@@ -439,8 +489,10 @@ class DohProxyService {
   Future<int> _callFfiStart({
     required int port,
     required bool enableDoh,
+    required bool gatewayMode,
     required bool preferIpv6,
     required String? dohServer,
+    required String? dohServerEch,
     required String? serverIp,
     required String? upstreamProtocol,
     required String? upstreamHost,
@@ -455,8 +507,10 @@ class DohProxyService {
       'cmd': 'start',
       'port': port,
       'enableDoh': enableDoh,
+      'gatewayMode': gatewayMode,
       'preferIpv6': preferIpv6,
       'dohServer': dohServer,
+      'dohServerEch': dohServerEch,
       'serverIp': serverIp,
       'upstreamProtocol': upstreamProtocol,
       'upstreamHost': upstreamHost,
@@ -575,8 +629,10 @@ void _ffiIsolateEntry(SendPort mainSendPort) {
           final portValue = message['port'] as int? ?? 0;
           final preferredPort = message['preferredPort'] as int? ?? 0;
           final enableDoh = message['enableDoh'] as bool? ?? true;
+          final gatewayMode = message['gatewayMode'] as bool? ?? false;
           final preferIpv6 = message['preferIpv6'] as bool? ?? false;
           final dohServer = message['dohServer'] as String?;
+          final dohServerEch = message['dohServerEch'] as String?;
           final serverIp = message['serverIp'] as String?;
           final upstreamProtocol = message['upstreamProtocol'] as String?;
           final upstreamHost = message['upstreamHost'] as String?;
@@ -587,8 +643,10 @@ void _ffiIsolateEntry(SendPort mainSendPort) {
           var resultPort = DohProxyFfi.instance.start(
             port: portValue,
             enableDoh: enableDoh,
+            gatewayMode: gatewayMode,
             preferIpv6: preferIpv6,
             dohServer: dohServer,
+            dohServerEch: dohServerEch,
             serverIp: serverIp,
             upstreamProtocol: upstreamProtocol,
             upstreamHost: upstreamHost,
@@ -601,8 +659,10 @@ void _ffiIsolateEntry(SendPort mainSendPort) {
             resultPort = DohProxyFfi.instance.start(
               port: 0,
               enableDoh: enableDoh,
+              gatewayMode: gatewayMode,
               preferIpv6: preferIpv6,
               dohServer: dohServer,
+              dohServerEch: dohServerEch,
               serverIp: serverIp,
               upstreamProtocol: upstreamProtocol,
               upstreamHost: upstreamHost,
