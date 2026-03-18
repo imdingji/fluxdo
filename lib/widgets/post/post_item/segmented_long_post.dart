@@ -172,6 +172,7 @@ class LongPostFooterSegment extends StatelessWidget {
   final void Function(int postId)? onRefreshPost;
   final void Function(int postNumber)? onJumpToPost;
   final void Function(int postId, bool accepted)? onSolutionChanged;
+  final bool useReplyDialog;
 
   const LongPostFooterSegment({
     super.key,
@@ -187,6 +188,7 @@ class LongPostFooterSegment extends StatelessWidget {
     required this.onRefreshPost,
     required this.onJumpToPost,
     required this.onSolutionChanged,
+    this.useReplyDialog = false,
   });
 
   @override
@@ -209,6 +211,7 @@ class LongPostFooterSegment extends StatelessWidget {
           onRefreshPost: onRefreshPost,
           onJumpToPost: onJumpToPost,
           onSolutionChanged: onSolutionChanged,
+          useReplyDialog: useReplyDialog,
         ),
       ),
     );

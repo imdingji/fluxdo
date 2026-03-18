@@ -48,6 +48,7 @@ class TopicDetailNotifier extends AsyncNotifier<TopicDetail> {
   bool _isLoadPreviousFailed = false;
   String? _filter;  // 当前过滤模式（如 'summary' 表示热门回复）
   String? _usernameFilter;  // 当前用户名过滤（如只看题主）
+  bool _filterTopLevelReplies = false;  // 只看顶层回复
   /// 待加载的新帖子 ID 队列（对齐 Discourse _newPostsInStream）
   final List<int> _pendingNewPostIds = [];
   bool _isLoadingNewPosts = false;
@@ -60,7 +61,8 @@ class TopicDetailNotifier extends AsyncNotifier<TopicDetail> {
   bool get isLoadPreviousFailed => _isLoadPreviousFailed;
   bool get isSummaryMode => _filter == 'summary';
   bool get isAuthorOnlyMode => _usernameFilter != null;
-  bool get _isFilteredMode => _filter != null || _usernameFilter != null;
+  bool get isTopLevelMode => _filterTopLevelReplies;
+  bool get _isFilteredMode => _filter != null || _usernameFilter != null || _filterTopLevelReplies;
 
   /// 根据 posts 和 stream 统一计算边界状态
   ///

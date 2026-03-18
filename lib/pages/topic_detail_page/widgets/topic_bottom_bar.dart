@@ -11,9 +11,11 @@ class TopicBottomBar extends StatelessWidget {
   final bool hasSummary;
   final bool isSummaryMode;
   final bool isAuthorOnlyMode;
+  final bool isTopLevelMode;
   final bool isLoading;
   final VoidCallback? onShowTopReplies;
   final VoidCallback? onShowAuthorOnly;
+  final VoidCallback? onShowTopLevelReplies;
   final VoidCallback? onCancelFilter;
 
   const TopicBottomBar({
@@ -26,9 +28,11 @@ class TopicBottomBar extends StatelessWidget {
     this.hasSummary = false,
     this.isSummaryMode = false,
     this.isAuthorOnlyMode = false,
+    this.isTopLevelMode = false,
     this.isLoading = false,
     this.onShowTopReplies,
     this.onShowAuthorOnly,
+    this.onShowTopLevelReplies,
     this.onCancelFilter,
   });
 
@@ -57,6 +61,8 @@ class TopicBottomBar extends StatelessWidget {
             _buildTopRepliesButton(context),
           // 只看题主
           _buildAuthorOnlyButton(context),
+          // 只看顶层
+          _buildTopLevelButton(context),
           // 分享菜单
           _buildShareMenu(context, theme),
           // 在浏览器打开
@@ -168,6 +174,24 @@ class TopicBottomBar extends StatelessWidget {
         backgroundColor: isAuthorOnlyMode ? theme.colorScheme.primaryContainer : null,
       ),
       tooltip: isAuthorOnlyMode ? context.l10n.topicDetail_viewAll : context.l10n.topicDetail_authorOnly,
+    );
+  }
+
+  Widget _buildTopLevelButton(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return IconButton(
+      onPressed: isLoading ? null : (isTopLevelMode ? onCancelFilter : onShowTopLevelReplies),
+      icon: Icon(
+        isTopLevelMode
+            ? Icons.account_tree
+            : Icons.account_tree_outlined,
+        color: isTopLevelMode ? theme.colorScheme.primary : null,
+      ),
+      style: IconButton.styleFrom(
+        backgroundColor: isTopLevelMode ? theme.colorScheme.primaryContainer : null,
+      ),
+      tooltip: isTopLevelMode ? context.l10n.topicDetail_viewAll : context.l10n.topicDetail_topLevelOnly,
     );
   }
 }

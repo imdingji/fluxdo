@@ -130,7 +130,7 @@ class PostSegmentFrame extends StatelessWidget {
 
 Color buildPostTargetColor(ThemeData theme, Post post, bool highlight) {
   final backgroundColor = theme.colorScheme.surface;
-  final highlightColor = theme.colorScheme.tertiaryContainer.withValues(alpha: 0.5);
+  final highlightColor = theme.colorScheme.primaryContainer.withValues(alpha: 0.3);
   return highlight
       ? Color.alphaBlend(highlightColor, backgroundColor)
       : post.isDeleted

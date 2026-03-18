@@ -80,8 +80,12 @@ class PostHeader extends StatelessWidget {
   final bool isOwnPost;
   final bool isWhisper;
   final Widget cachedAvatarWidget;
-  final ValueNotifier<bool> isLoadingReplyHistoryNotifier;
-  final VoidCallback onToggleReplyHistory;
+  final ValueNotifier<bool>? isLoadingReplyHistoryNotifier;
+  final VoidCallback? onToggleReplyHistory;
+  /// 自定义回复指示点击回调（用于弹框内滚动跳转，不加载回复历史）
+  final VoidCallback? onReplyIndicatorTap;
+  /// 隐藏回复指示器
+  final bool hideReplyIndicator;
   final Widget Function(BuildContext context, String text, Color backgroundColor, Color textColor) buildCompactBadge;
   final Widget timeAndFloorWidget;
 
@@ -95,6 +99,8 @@ class PostHeader extends StatelessWidget {
     required this.cachedAvatarWidget,
     required this.isLoadingReplyHistoryNotifier,
     required this.onToggleReplyHistory,
+    this.onReplyIndicatorTap,
+    this.hideReplyIndicator = false,
     required this.buildCompactBadge,
     required this.timeAndFloorWidget,
   });
@@ -220,61 +226,82 @@ class PostHeader extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        if (post.replyToUser != null) ...[
-          ValueListenableBuilder<bool>(
-            valueListenable: isLoadingReplyHistoryNotifier,
-            builder: (context, isLoading, _) {
-              return GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: isLoading ? null : onToggleReplyHistory,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primary.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.1)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (isLoading)
-                        const SizedBox(
-                          width: 12,
-                          height: 12,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      else
-                        Icon(
-                          Icons.reply,
-                          size: 14,
-                          color: theme.colorScheme.primary,
-                        ),
-                      const SizedBox(width: 6),
-                      CircleAvatar(
-                        radius: 10,
-                        backgroundColor: theme.colorScheme.primaryContainer,
-                        backgroundImage: post.replyToUser!.avatarTemplate.isNotEmpty
-                            ? discourseImageProvider(
-                                UrlHelper.resolveUrlWithCdn(post.replyToUser!.avatarTemplate.replaceAll('{size}', '40')),
-                              )
-                            : null,
-                        child: post.replyToUser!.avatarTemplate.isEmpty
-                            ? Text(
-                                post.replyToUser!.username[0].toUpperCase(),
-                                style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold),
-                              )
-                            : null,
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
+        if (post.replyToUser != null && !hideReplyIndicator) ...[
+          if (onToggleReplyHistory != null)
+            ValueListenableBuilder<bool>(
+              valueListenable: isLoadingReplyHistoryNotifier!,
+              builder: (context, isLoading, _) {
+                return GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: isLoading ? null : onToggleReplyHistory,
+                  child: _buildReplyIndicator(theme, isLoading: isLoading),
+                );
+              },
+            )
+          else if (onReplyIndicatorTap != null)
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onReplyIndicatorTap,
+              child: _buildReplyIndicator(theme),
+            )
+          else
+            _buildReplyIndicator(theme, showUsername: true),
           const SizedBox(width: 12),
         ],
         timeAndFloorWidget,
       ],
+    );
+  }
+
+  Widget _buildReplyIndicator(ThemeData theme, {bool isLoading = false, bool showUsername = false}) {
+    final replyToUser = post.replyToUser!;
+    final displayName = (replyToUser.name != null && replyToUser.name!.isNotEmpty)
+        ? replyToUser.name!
+        : replyToUser.username;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.1)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (isLoading)
+            const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2))
+          else
+            Icon(Icons.reply, size: 14, color: theme.colorScheme.primary),
+          const SizedBox(width: 6),
+          CircleAvatar(
+            radius: 10,
+            backgroundColor: theme.colorScheme.primaryContainer,
+            backgroundImage: replyToUser.avatarTemplate.isNotEmpty
+                ? discourseImageProvider(
+                    UrlHelper.resolveUrlWithCdn(replyToUser.avatarTemplate.replaceAll('{size}', '40')),
+                  )
+                : null,
+            child: replyToUser.avatarTemplate.isEmpty
+                ? Text(replyToUser.username[0].toUpperCase(), style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold))
+                : null,
+          ),
+          if (showUsername) ...[
+            const SizedBox(width: 4),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 80),
+              child: Text(
+                displayName,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.primary,
+                  fontSize: 11,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

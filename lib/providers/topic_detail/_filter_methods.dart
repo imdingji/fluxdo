@@ -9,6 +9,7 @@ extension FilterMethods on TopicDetailNotifier {
     if (_filter == 'summary') return;
     _filter = 'summary';
     _usernameFilter = null;
+    _filterTopLevelReplies = false;
     await _reloadWithFilter();
   }
 
@@ -17,14 +18,69 @@ extension FilterMethods on TopicDetailNotifier {
     if (_usernameFilter == username) return;
     _usernameFilter = username;
     _filter = null;
+    _filterTopLevelReplies = false;
     await _reloadWithFilter();
+  }
+
+  /// 切换到只看顶层回复模式
+  Future<void> showTopLevelReplies() async {
+    if (_filterTopLevelReplies) return;
+
+    // 保存主贴（filter_top_level_replies 不返回主贴）
+    Post? savedFirstPost;
+    if (state.hasValue) {
+      final posts = state.requireValue.postStream.posts;
+      final idx = posts.indexWhere((p) => p.postNumber == 1);
+      if (idx != -1) savedFirstPost = posts[idx];
+    }
+
+    _filterTopLevelReplies = true;
+    _filter = null;
+    _usernameFilter = null;
+    await _reloadWithFilter();
+
+    // 主贴不在当前数据中，单独请求
+    if (savedFirstPost == null && ref.mounted) {
+      try {
+        final service = ref.read(discourseServiceProvider);
+        savedFirstPost = await service.getPostByNumber(arg.topicId, 1);
+      } catch (_) {
+        // 加载失败不影响主流程
+      }
+    }
+
+    // 补回主贴
+    if (ref.mounted) _prependFirstPost(savedFirstPost);
+  }
+
+  /// 补回主贴到 posts 和 stream 开头
+  void _prependFirstPost(Post? firstPost) {
+    if (firstPost == null || !state.hasValue) return;
+    final detail = state.requireValue;
+    final posts = detail.postStream.posts;
+    if (posts.any((p) => p.postNumber == 1)) return; // 已有主贴
+
+    final updatedPosts = [firstPost, ...posts];
+    final stream = detail.postStream.stream;
+    final updatedStream = stream.contains(firstPost.id)
+        ? stream
+        : [firstPost.id, ...stream];
+
+    state = AsyncValue.data(detail.copyWith(
+      postStream: PostStream(
+        posts: updatedPosts,
+        stream: updatedStream,
+        gaps: detail.postStream.gaps,
+      ),
+    ));
   }
 
   /// 取消过滤，显示全部回复
   Future<void> cancelFilter() async {
-    if (_filter == null && _usernameFilter == null) return;
+    if (_filter == null && _usernameFilter == null && !_filterTopLevelReplies) return;
     _filter = null;
     _usernameFilter = null;
+    _filterTopLevelReplies = false;
     await _reloadWithFilter();
   }
 
@@ -32,6 +88,7 @@ extension FilterMethods on TopicDetailNotifier {
   Future<void> cancelFilterAndReloadWithPostNumber(int postNumber) async {
     _filter = null;
     _usernameFilter = null;
+    _filterTopLevelReplies = false;
     state = const AsyncValue.loading();
     _hasMoreAfter = true;
     _hasMoreBefore = true;
@@ -67,7 +124,7 @@ extension FilterMethods on TopicDetailNotifier {
 
     final result = await AsyncValue.guard(() async {
       final service = ref.read(discourseServiceProvider);
-      final detail = await service.getTopicDetail(arg.topicId, filter: _filter, usernameFilters: _usernameFilter);
+      final detail = await service.getTopicDetail(arg.topicId, filter: _filter, usernameFilters: _usernameFilter, filterTopLevelReplies: _filterTopLevelReplies);
 
       _updateBoundaryState(detail.postStream.posts, detail.postStream.stream);
 

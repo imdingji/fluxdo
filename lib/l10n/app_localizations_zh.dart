@@ -1677,6 +1677,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get post_loadMoreReplies => '加载更多回复';
 
   @override
+  String get post_detail => '帖子详情';
+
+  @override
+  String post_relatedRepliesCount(int count) {
+    return '相关回复共 $count 条';
+  }
+
+  @override
   String get post_collapseReplies => '收起回复';
 
   @override
@@ -3033,6 +3041,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get topicDetail_authorOnly => '只看题主';
+
+  @override
+  String get topicDetail_topLevelOnly => '只看顶层';
 
   @override
   String get topicDetail_replyLabel => '回复';
@@ -6791,6 +6802,14 @@ class AppLocalizationsZhHk extends AppLocalizationsZh {
   String get post_loadMoreReplies => '加載更多回復';
 
   @override
+  String get post_detail => '帖子詳情';
+
+  @override
+  String post_relatedRepliesCount(int count) {
+    return '相關回覆共 $count 條';
+  }
+
+  @override
   String get post_collapseReplies => '收起回覆';
 
   @override
@@ -8147,6 +8166,9 @@ class AppLocalizationsZhHk extends AppLocalizationsZh {
 
   @override
   String get topicDetail_authorOnly => '只看題主';
+
+  @override
+  String get topicDetail_topLevelOnly => '只看頂層';
 
   @override
   String get topicDetail_replyLabel => '回覆';
@@ -11905,6 +11927,14 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get post_loadMoreReplies => '載入更多回復';
 
   @override
+  String get post_detail => '帖子詳情';
+
+  @override
+  String post_relatedRepliesCount(int count) {
+    return '相關回覆共 $count 條';
+  }
+
+  @override
   String get post_collapseReplies => '收起回覆';
 
   @override
@@ -13261,6 +13291,9 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get topicDetail_authorOnly => '只看題主';
+
+  @override
+  String get topicDetail_topLevelOnly => '只看頂層';
 
   @override
   String get topicDetail_replyLabel => '回覆';

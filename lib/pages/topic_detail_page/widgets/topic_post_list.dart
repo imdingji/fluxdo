@@ -62,6 +62,10 @@ class TopicPostList extends StatefulWidget {
   final void Function(int postId)? onFillGapAfter;
   /// 展开隐藏帖子回调
   final void Function(int postId)? onExpandHiddenPost;
+  /// 是否使用弹框展示回复（过滤模式下）
+  final bool useReplyDialog;
+  /// 查看帖子详情回调
+  final void Function(Post post)? onShowPostDetail;
 
   const TopicPostList({
     super.key,
@@ -99,6 +103,8 @@ class TopicPostList extends StatefulWidget {
     this.onFillGapBefore,
     this.onFillGapAfter,
     this.onExpandHiddenPost,
+    this.useReplyDialog = false,
+    this.onShowPostDetail,
   });
 
   @override
@@ -161,6 +167,7 @@ class _TopicPostListState extends State<TopicPostList> {
   void Function(int postId)? get onFillGapBefore => widget.onFillGapBefore;
   void Function(int postId)? get onFillGapAfter => widget.onFillGapAfter;
   void Function(int postId)? get onExpandHiddenPost => widget.onExpandHiddenPost;
+  bool get useReplyDialog => widget.useReplyDialog;
 
   /// 检测当前可见帖子（Eyeline 机制）
   ///
@@ -603,6 +610,8 @@ class _TopicPostListState extends State<TopicPostList> {
           onQuoteSelection: onQuoteSelection,
           onQuoteImage: onQuoteImage,
           onExpandHiddenPost: onExpandHiddenPost,
+          useReplyDialog: useReplyDialog,
+          onShowPostDetail: widget.onShowPostDetail != null ? () => widget.onShowPostDetail!(post) : null,
         );
         break;
       case _PostRenderSegmentType.longHeader:
@@ -640,6 +649,7 @@ class _TopicPostListState extends State<TopicPostList> {
           onRefreshPost: onRefreshPost,
           onJumpToPost: onJumpToPost,
           onSolutionChanged: onSolutionChanged,
+          useReplyDialog: useReplyDialog,
         );
         break;
       case _PostRenderSegmentType.gapBefore:

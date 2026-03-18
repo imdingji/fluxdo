@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show SelectedContent;
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../models/topic.dart';
 import '../../../pages/topic_detail_page/topic_detail_page.dart';
@@ -33,6 +34,8 @@ class PostItem extends ConsumerStatefulWidget {
   final void Function(String selectedText, Post post)? onQuoteSelection;
   final void Function(String quote, Post post)? onQuoteImage;
   final void Function(int postId)? onExpandHiddenPost;
+  final bool useReplyDialog;
+  final VoidCallback? onShowPostDetail;
 
   const PostItem({
     super.key,
@@ -54,6 +57,8 @@ class PostItem extends ConsumerStatefulWidget {
     this.onQuoteSelection,
     this.onQuoteImage,
     this.onExpandHiddenPost,
+    this.useReplyDialog = false,
+    this.onShowPostDetail,
   });
 
   @override
@@ -64,6 +69,7 @@ class _PostItemState extends ConsumerState<PostItem> {
   SelectedContent? _lastSelectedContent;
   CodeSelectionContext? _lastCodeSelectionContext;
   late bool _acceptedAnswer;
+  VoidCallback? _showMoreMenu;
 
   @override
   void initState() {
@@ -98,7 +104,17 @@ class _PostItemState extends ConsumerState<PostItem> {
       topDateSeparatorLabel: widget.dateSeparatorLabel,
       showBottomDateSeparator: widget.bottomDateSeparatorLabel != null,
       bottomDateSeparatorLabel: widget.bottomDateSeparatorLabel,
-      child: Padding(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onLongPress: () {
+            HapticFeedback.mediumImpact();
+            _showMoreMenu?.call();
+          },
+          highlightColor: theme.colorScheme.primary.withValues(alpha: 0.05),
+          hoverColor: theme.colorScheme.primary.withValues(alpha: 0.05),
+          splashColor: Colors.transparent,
+          child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -230,6 +246,9 @@ class _PostItemState extends ConsumerState<PostItem> {
                 onRefreshPost: widget.onRefreshPost,
                 onJumpToPost: widget.onJumpToPost,
                 onSolutionChanged: widget.onSolutionChanged,
+                useReplyDialog: widget.useReplyDialog,
+                onShowPostDetail: widget.onShowPostDetail,
+                onMenuRegistered: (callback) => _showMoreMenu = callback,
                 onAcceptedAnswerChanged: (accepted) {
                   if (!mounted) return;
                   setState(() {
@@ -240,6 +259,8 @@ class _PostItemState extends ConsumerState<PostItem> {
             ),
           ],
         ),
+      ),
+      ),
       ),
     );
   }

@@ -20,6 +20,7 @@ import '../post_reaction_picker.dart';
 import '../post_reaction_users_sheet.dart';
 import '../post_replies_list.dart';
 import '../post_solution_banner.dart';
+import '../../../../post/post_replies_sheet.dart';
 
 part 'actions/bookmark_actions.dart';
 part 'actions/manage_actions.dart';
@@ -40,6 +41,15 @@ class PostFooterSection extends ConsumerStatefulWidget {
   final void Function(int postNumber)? onJumpToPost;
   final void Function(int postId, bool accepted)? onSolutionChanged;
   final ValueChanged<bool>? onAcceptedAnswerChanged;
+  final bool useReplyDialog;
+  /// 隐藏回复列表按钮（弹框内使用时不需要展示）
+  final bool hideRepliesButton;
+  /// 查看帖子详情回调（菜单中的"查看帖子详情"或"跳转"）
+  final VoidCallback? onShowPostDetail;
+  /// 自定义帖子详情菜单项文本（默认"帖子详情"，弹框中可用"跳转"）
+  final String? postDetailLabel;
+  /// 菜单注册回调（允许外部触发相同的菜单）
+  final ValueChanged<VoidCallback>? onMenuRegistered;
 
   const PostFooterSection({
     super.key,
@@ -55,6 +65,11 @@ class PostFooterSection extends ConsumerStatefulWidget {
     required this.onJumpToPost,
     required this.onSolutionChanged,
     this.onAcceptedAnswerChanged,
+    this.useReplyDialog = false,
+    this.hideRepliesButton = false,
+    this.onShowPostDetail,
+    this.postDetailLabel,
+    this.onMenuRegistered,
   });
 
   @override
@@ -85,6 +100,12 @@ class _PostFooterSectionState extends ConsumerState<PostFooterSection> {
   void initState() {
     super.initState();
     _syncState();
+    widget.onMenuRegistered?.call(_triggerMoreMenu);
+  }
+
+  void _triggerMoreMenu() {
+    if (!mounted) return;
+    _showMoreMenu(context, Theme.of(context));
   }
 
   @override
@@ -93,6 +114,8 @@ class _PostFooterSectionState extends ConsumerState<PostFooterSection> {
     if (oldWidget.post != widget.post) {
       _syncState();
     }
+    // 重新注册菜单回调（rebuild 时 local 变量可能已更新）
+    widget.onMenuRegistered?.call(_triggerMoreMenu);
   }
 
   @override
@@ -147,6 +170,7 @@ class _PostFooterSectionState extends ConsumerState<PostFooterSection> {
             replies: _replies,
             isLoadingRepliesNotifier: _isLoadingRepliesNotifier,
             showRepliesNotifier: _showRepliesNotifier,
+            hideRepliesButton: widget.hideRepliesButton,
             onToggleLike: _toggleLike,
             onShowReactionPicker: () => _showReactionPicker(context, theme),
             onShowReactionUsers: (reactionId) =>

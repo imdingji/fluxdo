@@ -30,6 +30,7 @@ import '../../services/log/log_writer.dart';
 import '../../services/navigation/app_route_observer.dart';
 import '../../widgets/content/lazy_load_scope.dart';
 import '../../widgets/post/post_item_skeleton.dart';
+import '../../widgets/post/post_replies_sheet.dart';
 import '../../widgets/post/reply_sheet.dart';
 import '../../widgets/topic/topic_progress.dart';
 import '../../widgets/topic/topic_notification_button.dart';
@@ -969,9 +970,11 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
                       onProgressTap: () => _showTimelineSheet(detail),
                       isSummaryMode: notifier.isSummaryMode,
                       isAuthorOnlyMode: notifier.isAuthorOnlyMode,
+                      isTopLevelMode: notifier.isTopLevelMode,
                       isLoading: _isSwitchingMode,
                       onShowTopReplies: _handleShowTopReplies,
                       onShowAuthorOnly: _handleShowAuthorOnly,
+                      onShowTopLevelReplies: _handleShowTopLevelReplies,
                       onCancelFilter: _handleCancelFilter,
                     );
                   },
@@ -1133,6 +1136,13 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
               onFillGapBefore: (postId) => notifier.fillGapBefore(postId),
               onFillGapAfter: (postId) => notifier.fillGapAfter(postId),
               onExpandHiddenPost: (postId) => notifier.expandHiddenPost(postId),
+              useReplyDialog: notifier.isTopLevelMode,
+              onShowPostDetail: (post) => showPostRepliesSheet(
+                context: context,
+                post: post,
+                topicId: widget.topicId,
+                onJumpToPost: _scrollToPost,
+              ),
             );
           },
         );

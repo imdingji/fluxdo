@@ -119,6 +119,20 @@ mixin _PostsMixin on _DiscourseServiceBase {
     return data.map((e) => Post.fromJson(e as Map<String, dynamic>)).toList();
   }
 
+  /// 通过话题 ID 和楼层编号获取单个帖子
+  Future<Post> getPostByNumber(int topicId, int postNumber) async {
+    final response = await _dio.get('/posts/by_number/$topicId/$postNumber');
+    final data = response.data as Map<String, dynamic>;
+    return Post.fromJson(data);
+  }
+
+  /// 获取帖子所有层级回复的 ID 列表（递归查询）
+  Future<List<int>> getPostReplyIds(int postId) async {
+    final response = await _dio.get('/posts/$postId/reply-ids.json');
+    final data = response.data as List<dynamic>;
+    return data.map((e) => (e as Map<String, dynamic>)['id'] as int).toList();
+  }
+
   /// 获取单个帖子完整数据（用于 MessageBus 刷新）
   Future<Post> getPost(int postId) async {
     final response = await _dio.get('/posts/$postId.json');

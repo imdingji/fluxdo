@@ -26,6 +26,18 @@ extension _PostFooterReplyActions on _PostFooterSectionState {
   }
 
   Future<void> _toggleReplies() async {
+    // 过滤模式：打开弹框展示递归回复
+    if (widget.useReplyDialog) {
+      showPostRepliesSheet(
+        context: context,
+        post: widget.post,
+        topicId: widget.topicId,
+        onJumpToPost: widget.onJumpToPost,
+      );
+      return;
+    }
+
+    // 普通模式：内联展开直接回复
     if (_showRepliesNotifier.value) {
       _showRepliesNotifier.value = false;
       return;

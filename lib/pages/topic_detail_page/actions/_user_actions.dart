@@ -24,7 +24,7 @@ extension _UserActions on _TopicDetailPageState {
     final updatedDetail = ref.read(topicDetailProvider(params)).value;
     if (updatedDetail == null) return;
 
-    final isFiltered = notifier.isSummaryMode || notifier.isAuthorOnlyMode;
+    final isFiltered = notifier.isSummaryMode || notifier.isAuthorOnlyMode || notifier.isTopLevelMode;
     final hasAnchor = updatedDetail.postStream.posts.any((p) => p.postNumber == anchorPostNumber);
     if (!isFiltered || hasAnchor) {
       _controller.prepareRefresh(anchorPostNumber, skipHighlight: true);

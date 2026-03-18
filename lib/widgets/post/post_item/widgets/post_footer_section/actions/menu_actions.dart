@@ -52,16 +52,42 @@ extension _PostFooterMenuActions on _PostFooterSectionState {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (ctx) => Container(
         margin: const EdgeInsets.all(16),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.7,
+        ),
         decoration: BoxDecoration(
           color: theme.colorScheme.surface,
           borderRadius: BorderRadius.circular(16),
         ),
         child: SafeArea(
-          child: Column(
+          child: SingleChildScrollView(
+            child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (widget.onShowPostDetail != null)
+                ListTile(
+                  leading: Icon(
+                    widget.postDetailLabel != null ? Icons.open_in_new : Icons.article_outlined,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                  title: Text(widget.postDetailLabel ?? context.l10n.post_detail),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    widget.onShowPostDetail!();
+                  },
+                ),
+              if (widget.onReply != null)
+                ListTile(
+                  leading: Icon(Icons.reply, color: theme.colorScheme.onSurface),
+                  title: Text(context.l10n.common_reply),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    widget.onReply!();
+                  },
+                ),
               if (widget.post.canEdit && widget.onEdit != null)
                 ListTile(
                   leading: Icon(Icons.edit_outlined, color: theme.colorScheme.primary),
@@ -199,6 +225,7 @@ extension _PostFooterMenuActions on _PostFooterSectionState {
                 onTap: () => Navigator.pop(ctx),
               ),
             ],
+          ),
           ),
         ),
       ),

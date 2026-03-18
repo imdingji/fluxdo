@@ -1711,6 +1711,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get post_loadMoreReplies => 'Load more replies';
 
   @override
+  String get post_detail => 'Post Detail';
+
+  @override
+  String post_relatedRepliesCount(int count) {
+    return '$count related replies';
+  }
+
+  @override
   String get post_collapseReplies => 'Collapse replies';
 
   @override
@@ -3081,6 +3089,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get topicDetail_authorOnly => 'OP only';
+
+  @override
+  String get topicDetail_topLevelOnly => 'Top-level only';
 
   @override
   String get topicDetail_replyLabel => 'Replies';

@@ -3071,6 +3071,18 @@ abstract class AppLocalizations {
   /// **'加载更多回复'**
   String get post_loadMoreReplies;
 
+  /// No description provided for @post_detail.
+  ///
+  /// In zh, this message translates to:
+  /// **'帖子详情'**
+  String get post_detail;
+
+  /// No description provided for @post_relatedRepliesCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'相关回复共 {count} 条'**
+  String post_relatedRepliesCount(int count);
+
   /// No description provided for @post_collapseReplies.
   ///
   /// In zh, this message translates to:
@@ -5590,6 +5602,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'只看题主'**
   String get topicDetail_authorOnly;
+
+  /// No description provided for @topicDetail_topLevelOnly.
+  ///
+  /// In zh, this message translates to:
+  /// **'只看顶层'**
+  String get topicDetail_topLevelOnly;
 
   /// No description provided for @topicDetail_replyLabel.
   ///

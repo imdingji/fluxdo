@@ -93,6 +93,25 @@ extension _FilterActions on _TopicDetailPageState {
     }
   }
 
+  Future<void> _handleShowTopLevelReplies() async {
+    final params = _params;
+    final notifier = ref.read(topicDetailProvider(params).notifier);
+
+    setState(() => _isSwitchingMode = true);
+
+    _controller.prepareJumpToPost(1);
+    _controller.skipNextJumpHighlight = true;
+    _controller.resetVisibility();
+
+    try {
+      await notifier.showTopLevelReplies();
+    } finally {
+      if (mounted) {
+        setState(() => _isSwitchingMode = false);
+      }
+    }
+  }
+
   Future<void> _handleShowAuthorOnly() async {
     final params = _params;
     final detail = ref.read(topicDetailProvider(params)).value;

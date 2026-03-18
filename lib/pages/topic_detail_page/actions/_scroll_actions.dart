@@ -92,7 +92,7 @@ extension _ScrollActions on _TopicDetailPageState {
       _controller.prepareJumpToPost(postNumber);
       _controller.skipNextJumpHighlight = false;
 
-      if (notifier.isSummaryMode || notifier.isAuthorOnlyMode) {
+      if (notifier.isSummaryMode || notifier.isAuthorOnlyMode || notifier.isTopLevelMode) {
         await _reloadWithFilterFallback(postNumber: postNumber);
       } else {
         await notifier.reloadWithPostNumber(postNumber);
@@ -189,7 +189,7 @@ extension _ScrollActions on _TopicDetailPageState {
 
       final notifier = ref.read(topicDetailProvider(params).notifier);
 
-      if (notifier.isSummaryMode || notifier.isAuthorOnlyMode) {
+      if (notifier.isSummaryMode || notifier.isAuthorOnlyMode || notifier.isTopLevelMode) {
         await _reloadWithFilterFallback(postNumber: realPostNumber, postId: postId);
       } else {
         await notifier.reloadWithPostNumber(realPostNumber);

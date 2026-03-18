@@ -1180,6 +1180,9 @@
     }
   },
   "post_loadMoreReplies": "載入更多回復",
+  "post_detail": "帖子詳情",
+  "post_relatedRepliesCount": "相關回覆共 {count} 條",
+  "@post_relatedRepliesCount": { "placeholders": { "count": { "type": "int" } } },
   "post_collapseReplies": "收起回覆",
   "post_replyTo": "回覆給",
   "post_lastReadHere": "上次看到這裡",
@@ -1951,6 +1954,7 @@
   "topicDetail_viewAll": "檢視全部",
   "topicDetail_hotOnly": "只看熱門",
   "topicDetail_authorOnly": "只看題主",
+  "topicDetail_topLevelOnly": "只看頂層",
   "topicDetail_replyLabel": "回覆",
   "topicDetail_viewsLabel": "瀏覽",
   "topicDetail_showHiddenReplies": "顯示 {count} 條隱藏回覆",

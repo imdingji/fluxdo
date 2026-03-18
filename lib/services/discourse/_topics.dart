@@ -145,7 +145,7 @@ mixin _TopicsMixin on _DiscourseServiceBase {
   }
 
   /// 获取话题详情
-  Future<TopicDetail> getTopicDetail(int id, {int? postNumber, bool trackVisit = false, String? filter, String? usernameFilters}) async {
+  Future<TopicDetail> getTopicDetail(int id, {int? postNumber, bool trackVisit = false, String? filter, String? usernameFilters, bool filterTopLevelReplies = false}) async {
     final path = postNumber != null ? '/t/$id/$postNumber.json' : '/t/$id.json';
     final queryParams = <String, dynamic>{};
     if (trackVisit) {
@@ -156,6 +156,9 @@ mixin _TopicsMixin on _DiscourseServiceBase {
     }
     if (usernameFilters != null) {
       queryParams['username_filters'] = usernameFilters;
+    }
+    if (filterTopLevelReplies) {
+      queryParams['filter_top_level_replies'] = true;
     }
     final options = trackVisit
         ? Options(headers: {
