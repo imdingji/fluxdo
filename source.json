@@ -10,6 +10,13 @@
       "iconURL": "https://lingyan000.github.io/fluxdo/icon.png",
       "versions": [
         {
+          "version": "0.1.55",
+          "date": "2026-03-20T11:20:48Z",
+          "downloadURL": "https://github.com/lingyan000/fluxdo/releases/download/v0.1.55/fluxdo-unsigned.ipa",
+          "size": 32434518,
+          "localizedDescription": "- ✨ 编辑器支持插入模板\n\n- ✨ Windows 兼容优化\n\n- ✨ 个人页布局优化\n\n- ✨ 请求并发控制优化\n\n- ✨ 优化 Cookie 同步逻辑\n\n- ✨ 提升内置浏览器体验，添加收藏能力，添加下载管理\n\n- ✨ 桌面端体验优化\n\n- ✨ 优化回复报错提示，close #155\n\n- ✨ 帖子详情和只看顶层实现，close #153\n\n- ✨ 用户登录失效判断优化\n\n- ✨ 过盾体验优化\n\n- ✨ 提高 rhttp 适配器稳定性\n\n- ✨ DOH 网关模式稳定性修复\n\n<div align=center>\n\n[![Release Downloads](https://img.shields.io/github/downloads/lingyan000/fluxdo/v0.1.55/total?style=flat-square&logo=github)](https://img.shields.io/github/downloads/lingyan000/fluxdo/v0.1.55/)\n\n</div>\n\n**Download based on your device:**\n\n<div align=left>\n<table>\n    <thead align=left>\n        <tr>\n            <th>OS</th>\n            <th>Download</th>\n        </tr>\n    </thead>\n    <tbody align=left>\n        <tr>\n        <td>Android</td>\n            <td>\n                <a href=\"https://github.com/lingyan000/fluxdo/releases/download/v0.1.55/fluxdo-arm64-v8a.apk\"><img src=\"https://img.shields.io/badge/APK-ARMv8-168039.svg?logo=android\"></a><br>\n                <a href=\"https://github.com/lingyan000/fluxdo/releases/download/v0.1.55/fluxdo-armeabi-v7a.apk\"><img src=\"https://img.shields.io/badge/APK-ARMv7-45bf55.svg?logo=android\"></a><br>\n                <a href=\"https://github.com/lingyan000/fluxdo/releases/download/v0.1.55/fluxdo-x86_64.apk\"><img src=\"https://img.shields.io/badge/APK-x64-96ed89.svg?logo=android\"></a>\n            </td>"
+        },
+        {
           "version": "0.1.54",
           "date": "2026-03-17T13:17:19Z",
           "downloadURL": "https://github.com/lingyan000/fluxdo/releases/download/v0.1.54/fluxdo-unsigned.ipa",
