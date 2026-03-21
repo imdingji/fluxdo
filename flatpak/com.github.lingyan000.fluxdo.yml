@@ -1,0 +1,40 @@
+app-id: com.github.lingyan000.fluxdo
+runtime: org.gnome.Platform
+runtime-version: '48'
+sdk: org.gnome.Sdk
+command: fluxdo
+separate-locales: false
+finish-args:
+  - --share=network
+  - --share=ipc
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --socket=pulseaudio
+  - --device=dri
+  - --talk-name=org.freedesktop.secrets
+  - --talk-name=org.freedesktop.Notifications
+  - --filesystem=xdg-download:rw
+  - --filesystem=xdg-documents:rw
+modules:
+  - name: fluxdo
+    buildsystem: simple
+    build-commands:
+      - install -d /app/bin /app/fluxdo /app/share/applications /app/share/icons/hicolor/512x512/apps /app/share/metainfo
+      - cp -a bundle/. /app/fluxdo/
+      - install -Dm755 fluxdo-wrapper.sh /app/bin/fluxdo
+      - install -Dm644 com.github.lingyan000.fluxdo.desktop /app/share/applications/com.github.lingyan000.fluxdo.desktop
+      - install -Dm644 com.github.lingyan000.fluxdo.metainfo.xml /app/share/metainfo/com.github.lingyan000.fluxdo.metainfo.xml
+      - install -Dm644 com.github.lingyan000.fluxdo.png /app/share/icons/hicolor/512x512/apps/com.github.lingyan000.fluxdo.png
+    sources:
+      - type: dir
+        path: stage/bundle
+        dest: bundle
+      - type: file
+        path: fluxdo-wrapper.sh
+      - type: file
+        path: com.github.lingyan000.fluxdo.desktop
+      - type: file
+        path: com.github.lingyan000.fluxdo.metainfo.xml
+      - type: file
+        path: icons/com.github.lingyan000.fluxdo.png
+        dest-filename: com.github.lingyan000.fluxdo.png
