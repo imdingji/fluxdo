@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:catcher_2/catcher_2.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -159,7 +158,7 @@ Future<void> main() async {
   await NetworkSettingsService.instance.initialize(prefs);
   VpnAutoToggleService.instance.initialize(prefs);
   try {
-    final initialConnectivity = await Connectivity().checkConnectivity();
+    final initialConnectivity = await ConnectivityService.safeCheckConnectivity();
     await VpnAutoToggleService.instance.syncInitialState(initialConnectivity);
   } catch (e) {
     debugPrint('[Main] 初始 VPN 状态同步失败: $e');
