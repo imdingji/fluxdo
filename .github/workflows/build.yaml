@@ -7,6 +7,7 @@ on:
 
 env:
   IS_STABLE: ${{ !contains(github.ref, '-') }}
+  FLUTTER_LINUX_VERSION: '3.41.5'
 
 jobs:
   build:
@@ -217,6 +218,77 @@ jobs:
           path: ./dist
           overwrite: true
 
+  linux_bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Build Linux bundle in Arch container
+        env:
+          FLUTTER_VERSION: ${{ env.FLUTTER_LINUX_VERSION }}
+        run: |
+          docker run --rm \
+            -e CI=true \
+            -e FLUTTER_VERSION="${FLUTTER_VERSION}" \
+            -v "${GITHUB_WORKSPACE}:/workspace" \
+            -w /workspace \
+            archlinux:latest \
+            bash scripts/ci/build_linux_bundle.sh
+
+      - name: Upload Linux bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-bundle-release-internal
+          path: |
+            .artifacts/linux/fluxdo-linux-bundle.tar.gz
+            .artifacts/linux/ldd-report.txt
+          if-no-files-found: error
+          overwrite: true
+
+  flatpak_package:
+    needs: linux_bundle
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-48
+      options: --privileged
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Linux bundle artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-bundle-release-internal
+          path: .artifacts/linux
+
+      - name: Stage Flatpak sources
+        run: |
+          bash scripts/ci/stage_flatpak_bundle.sh .artifacts/linux/fluxdo-linux-bundle.tar.gz
+          ls -la flatpak/stage/bundle
+
+      - name: Build Flatpak bundle
+        uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          manifest-path: flatpak/com.github.lingyan000.fluxdo.yml
+          bundle: fluxdo-linux-x86_64.flatpak
+          branch: stable
+          repository-name: flathub
+          cache-key: flatpak-builder-${{ github.sha }}
+          arch: x86_64
+          verbose: true
+          upload-artifact: false
+
+      - name: Upload Flatpak artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifact-linux-flatpak-x86_64
+          path: fluxdo-linux-x86_64.flatpak
+          if-no-files-found: error
+          overwrite: true
+
   changelog:
     needs: build
     runs-on: ubuntu-latest
@@ -275,7 +347,9 @@ jobs:
           fi
 
   upload:
-    needs: build
+    needs:
+      - build
+      - flatpak_package
     runs-on: ubuntu-latest
     permissions: write-all
     services:

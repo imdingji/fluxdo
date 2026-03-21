@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart';
@@ -46,14 +47,51 @@ class ConnectivityService {
     enableCfChallenge: false,
   );
 
+  static bool get _isFlatpakSandbox =>
+      Platform.isLinux && Platform.environment.containsKey('FLATPAK_ID');
+
+  static bool get _hasSystemBusSocket =>
+      File('/var/run/dbus/system_bus_socket').existsSync();
+
+  static bool get _canUseConnectivityPlugin =>
+      !_isFlatpakSandbox || _hasSystemBusSocket;
+
+  static Future<List<ConnectivityResult>> safeCheckConnectivity() async {
+    if (!_canUseConnectivityPlugin) {
+      debugPrint(
+        '[Connectivity] Flatpak sandbox without system bus, fallback to connected state',
+      );
+      return const [ConnectivityResult.other];
+    }
+
+    try {
+      return await Connectivity().checkConnectivity();
+    } catch (e) {
+      debugPrint('[Connectivity] checkConnectivity 失败，fallback to connected state: $e');
+      return const [ConnectivityResult.other];
+    }
+  }
+
   /// 初始化服务
   void init() {
     if (_initialized) return;
     _initialized = true;
 
+    if (!_canUseConnectivityPlugin) {
+      debugPrint(
+        '[Connectivity] Flatpak sandbox missing system bus, skip connectivity_plus subscription',
+      );
+      _setConnected(true);
+      return;
+    }
+
     // 监听网络变化事件
     _connectivitySub = _connectivity.onConnectivityChanged.listen(
       _onConnectivityChanged,
+      onError: (Object error, StackTrace stackTrace) {
+        debugPrint('[Connectivity] 监听网络状态失败，fallback to connected state: $error');
+        _setConnected(true);
+      },
     );
 
     // 启动时检查一次
@@ -62,7 +100,7 @@ class ConnectivityService {
 
   Future<void> _checkInitial() async {
     try {
-      final result = await _connectivity.checkConnectivity();
+      final result = await safeCheckConnectivity();
       await _onConnectivityChanged(result);
     } catch (e) {
       debugPrint('[Connectivity] 初始检查失败: $e');
@@ -140,7 +178,7 @@ class ConnectivityService {
   void _startRetry() {
     _stopRetry();
     _retryTimer = Timer.periodic(const Duration(seconds: 1), (_) async {
-      final result = await _connectivity.checkConnectivity();
+      final result = await safeCheckConnectivity();
       final hasNetwork = result.isNotEmpty &&
           !result.every((r) => r == ConnectivityResult.none);
       if (hasNetwork) {
@@ -167,7 +205,7 @@ class ConnectivityService {
       final reachable = await pingServer();
       _setConnected(reachable);
     } else {
-      final result = await _connectivity.checkConnectivity();
+      final result = await safeCheckConnectivity();
       final hasNetwork = result.isNotEmpty &&
           !result.every((r) => r == ConnectivityResult.none);
       _setConnected(hasNetwork);

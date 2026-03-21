@@ -18,7 +18,7 @@ dependencies:
   cookie_jar: ^4.0.8
   native_dio_adapter: ^1.3.0
   flutter_secure_storage: ^9.2.2
-  flutter_inappwebview: ^6.1.5
+  flutter_inappwebview: ^6.2.0-beta.3
   cached_network_image: ^3.4.1
   octo_image: ^2.1.0
   flutter_cache_manager: ^3.4.1
