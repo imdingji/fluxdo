@@ -10,6 +10,13 @@
       "iconURL": "https://lingyan000.github.io/fluxdo/icon.png",
       "versions": [
         {
+          "version": "0.1.56",
+          "date": "2026-03-23T17:44:45Z",
+          "downloadURL": "https://github.com/lingyan000/fluxdo/releases/download/v0.1.56/fluxdo-unsigned.ipa",
+          "size": 33429670,
+          "localizedDescription": "- ✨ 功能优化\n\n- 🚀 部署优化\n\n- ✨ 优化下载附件文件名获取逻辑\n\n- ✨ AI助手未配置 API Key 时提示\n\n- 🐛 修复含有 emoji 的链接无法点击跳转的问题，fix #163\n\n- ✨ Hcaptcha 无障碍支持，close #166\n\n- ✨ 优化桌面端登录按钮样式\n\n- ✨ 支持滑动关闭 PopupMenu\n\n- ✨ Flatpak 构建测试\n\n- 🐛 修复错误的日志记录\n\n- 🐛 修复通知面板骨架屏下移的问题\n\n- ✨ 优化 windows 关闭窗口流程\n\n- ✨ 取消登录失效二次验证，网络设置支持调整速率\n\n- ✨ 登录流程优化\n\n- 🐛 CI 修复\n\n- ✨ 登录失效验证优化\n\n- ✨ Windows exe 安装包支持\n\n- 🐛 尝试修复 windows 上登录完成之后不触发登录成功的问题\n\n- 🐛 修复个人页常用功能区域会溢出的问题\n\n- 🐛 加载新帖逻辑修复\n\n- 🐛 修复 windows 最大化异常问题\n\n- 🐛 通知面板显示修复，fix #160\n\n<div align=center>\n\n[![Release Downloads](https://img.shields.io/github/downloads/lingyan000/fluxdo/v0.1.56/total?style=flat-square&logo=github)](https://img.shields.io/github/downloads/lingyan000/fluxdo/v0.1.56/)\n\n</div>"
+        },
+        {
           "version": "0.1.55",
           "date": "2026-03-20T11:20:48Z",
           "downloadURL": "https://github.com/lingyan000/fluxdo/releases/download/v0.1.55/fluxdo-unsigned.ipa",
