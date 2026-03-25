@@ -15,6 +15,7 @@ import '../doh_proxy/per_device_cert_service.dart';
 import '../doh_proxy/proxy_certificate.dart';
 import '../proxy/proxy_settings_service.dart';
 import '../rhttp/rhttp_settings_service.dart';
+import '../../windows_webview_environment_service.dart';
 import 'doh_resolver.dart';
 
 class NetworkSettings {
@@ -590,10 +591,23 @@ class NetworkSettingsService {
 
   Future<void> _applyWebViewProxy() async {
     if (!shouldRunLocalProxy) return;
-    // macOS 14 以下 / iOS 17 以下调用 setProxyOverride 可能报错
-    if (!Platform.isAndroid && !await isMacOS14OrAbove() && !await isiOS17OrAbove()) return;
     final port = _activeProxyPort;
     if (port == null) return;
+
+    if (Platform.isWindows) {
+      try {
+        await WindowsWebViewEnvironmentService.instance
+            .setProxy('http://127.0.0.1:$port');
+        _webViewProxySet = true;
+        debugPrint('[DOH] WebView2 代理已设置 -> 127.0.0.1:$port');
+      } catch (e) {
+        debugPrint('[DOH] WebView2 代理设置失败: $e');
+      }
+      return;
+    }
+
+    // macOS 14 以下 / iOS 17 以下调用 setProxyOverride 可能报错
+    if (!Platform.isAndroid && !await isMacOS14OrAbove() && !await isiOS17OrAbove()) return;
     try {
       await inappwebview.ProxyController.instance().setProxyOverride(
         settings: inappwebview.ProxySettings(
@@ -611,6 +625,18 @@ class NetworkSettingsService {
 
   Future<void> _clearWebViewProxy() async {
     if (!_webViewProxySet) return;
+
+    if (Platform.isWindows) {
+      try {
+        await WindowsWebViewEnvironmentService.instance.setProxy(null);
+        _webViewProxySet = false;
+        debugPrint('[DOH] WebView2 代理已清除');
+      } catch (e) {
+        debugPrint('[DOH] WebView2 代理清除失败: $e');
+      }
+      return;
+    }
+
     if (!Platform.isAndroid && !await isMacOS14OrAbove() && !await isiOS17OrAbove()) return;
     try {
       await inappwebview.ProxyController.instance().clearProxyOverride();

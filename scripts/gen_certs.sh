@@ -18,4 +18,5 @@ fi
 
 echo "Generating CA certificates..."
 (cd "$RUST_DIR" && cargo run --bin gen_ca)
+"$SCRIPT_DIR/sync_cert_resources.sh"
 echo "CA certificates generated successfully."

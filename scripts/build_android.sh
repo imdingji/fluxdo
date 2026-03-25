@@ -41,6 +41,8 @@ if [ ! -f "$RUST_DIR/certs/ca.crt" ]; then
     (cd "$RUST_DIR" && cargo run --bin gen_ca)
 fi
 
+"$SCRIPT_DIR/sync_cert_resources.sh"
+
 # Build for all Android architectures
 echo "Building for all Android architectures..."
 cd "$RUST_DIR"

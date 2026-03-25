@@ -29,6 +29,8 @@ if (-not (Test-Path $CaCert)) {
     try { cargo run --bin gen_ca } finally { Pop-Location }
 }
 
+& (Join-Path $ScriptDir "sync_cert_resources.ps1")
+
 # Build
 Push-Location $RustDir
 try {

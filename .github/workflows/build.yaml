@@ -201,18 +201,12 @@ jobs:
         if: matrix.platform == 'windows'
         uses: ilammy/setup-nasm@v1
 
-      - name: Build DOH Proxy for Windows
-        if: matrix.platform == 'windows'
-        working-directory: core/doh_proxy
-        run: cargo build --release --features ech
-
       - name: Build Windows
         if: matrix.platform == 'windows'
         run: |
           flutter build windows --release
           mkdir dist
           $releaseDir = "build\windows\x64\runner\Release"
-          Copy-Item "core\doh_proxy\target\release\doh_proxy.dll" "$releaseDir\"
           Copy-Item "core\doh_proxy\certs\ca.der" "$releaseDir\proxy_ca.der"
 
       - name: Package Windows ZIP

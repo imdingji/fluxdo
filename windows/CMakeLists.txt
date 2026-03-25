@@ -2,6 +2,12 @@
 cmake_minimum_required(VERSION 3.14)
 project(fluxdo LANGUAGES CXX)
 
+find_program(CARGO_EXECUTABLE cargo REQUIRED)
+find_program(POWERSHELL_EXECUTABLE pwsh)
+if(NOT POWERSHELL_EXECUTABLE)
+  find_program(POWERSHELL_EXECUTABLE powershell REQUIRED)
+endif()
+
 # The name of the executable created for the application. Change this to change
 # the on-disk name of your application.
 set(BINARY_NAME "fluxdo")
@@ -49,6 +55,20 @@ endfunction()
 set(FLUTTER_MANAGED_DIR "${CMAKE_CURRENT_SOURCE_DIR}/flutter")
 add_subdirectory(${FLUTTER_MANAGED_DIR})
 
+set(DOH_PROXY_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../core/doh_proxy")
+set(DOH_PROXY_CARGO_TARGET_DIR "${PROJECT_BINARY_DIR}/cargo_doh_proxy")
+set(DOH_PROXY_DLL_SOURCE "${DOH_PROXY_CARGO_TARGET_DIR}/release/doh_proxy.dll")
+set(DOH_PROXY_BIN_SOURCE "${DOH_PROXY_CARGO_TARGET_DIR}/release/doh_proxy_bin.exe")
+get_filename_component(DOH_PROJECT_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/.." ABSOLUTE)
+
+add_custom_target(build_doh_proxy_windows ALL
+  COMMAND ${POWERSHELL_EXECUTABLE} -ExecutionPolicy Bypass -File "${CMAKE_CURRENT_SOURCE_DIR}/../scripts/build_desktop.ps1" -Debug
+  COMMAND ${CARGO_EXECUTABLE} build --manifest-path "${DOH_PROXY_DIR}/Cargo.toml" --target-dir "${DOH_PROXY_CARGO_TARGET_DIR}" --bin doh_proxy_bin --lib --features ech --release
+  WORKING_DIRECTORY "${DOH_PROJECT_ROOT}"
+  COMMENT "Building DOH proxy for Windows"
+  BYPRODUCTS "${DOH_PROXY_DLL_SOURCE}" "${DOH_PROXY_BIN_SOURCE}"
+)
+
 # Application build; see runner/CMakeLists.txt.
 add_subdirectory("runner")
 
@@ -79,6 +99,11 @@ install(FILES "${FLUTTER_ICU_DATA_FILE}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}
   COMPONENT Runtime)
 
 install(FILES "${FLUTTER_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+  COMPONENT Runtime)
+
+install(FILES "${DOH_PROXY_DLL_SOURCE}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+  COMPONENT Runtime)
+install(FILES "${DOH_PROXY_BIN_SOURCE}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
   COMPONENT Runtime)
 
 if(PLUGIN_BUNDLED_LIBRARIES)

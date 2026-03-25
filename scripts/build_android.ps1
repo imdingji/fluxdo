@@ -54,6 +54,8 @@ if (-not (Test-Path $CaCert)) {
     try { cargo run --bin gen_ca } finally { Pop-Location }
 }
 
+& (Join-Path $ScriptDir "sync_cert_resources.ps1")
+
 # Build for all Android architectures
 Write-Host "Building for all Android architectures..." -ForegroundColor Yellow
 Push-Location $RustDir

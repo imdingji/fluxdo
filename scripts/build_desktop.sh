@@ -25,6 +25,8 @@ if [ ! -f "$RUST_DIR/certs/ca.crt" ]; then
     (cd "$RUST_DIR" && cargo run --bin gen_ca)
 fi
 
+"$SCRIPT_DIR/sync_cert_resources.sh"
+
 cd "$RUST_DIR"
 cargo build $CARGO_FLAG --features ech
 
