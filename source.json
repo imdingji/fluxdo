@@ -10,6 +10,13 @@
       "iconURL": "https://lingyan000.github.io/fluxdo/icon.png",
       "versions": [
         {
+          "version": "0.2.1",
+          "date": "2026-03-27T16:33:45Z",
+          "downloadURL": "https://github.com/lingyan000/fluxdo/releases/download/v0.2.1/fluxdo-unsigned.ipa",
+          "size": 34871911,
+          "localizedDescription": "\n- 🚑️ 修复 Cookie 无法读取的问题\n\n\n\n- 🐛 修复一些问题\n\n- ✨ 支持对话框模糊背景\n\n- 🐛 修复 IOS 编译问题\n\n- ✨ 长表格渲染优化，close #170\n\n- ✨ 功能优化\n\n- ✨ AI 助手可开启滑动显示模式\n\n- ✨ 统计卡片自定义\n\n- 🐛 修复 macOS 14 版本判断错误 (#176)\n\n- ✨ 功能优化，UI 更新\n\n- ✨ 新 Cookie 机制迁移\n\n- ✨ Windows DOH 适配\n\n- ✨ 修改 CookieJar 与 WebView Cookie 的同步方式\n\n- ✨ Cookie 相关代码逻辑优化\n\n- ✨ CA 证书相关优化\n\n- 🚀 CI 优化\n\n- ✨ IOS DOH 功能支持\n\n- 🐛 修复 macOS 滚轮/触控板滚动导致的吸附跳动 (#173)\n\n- ✨ 优化 macOS 构建以及支持 macOS 的 WebView 代理 (#171)\n\n\n<div align=center>\n\n[![Release Downloads](https://img.shields.io/github/downloads/lingyan000/fluxdo/v0.2.1/total?style=flat-square&logo=github)](https://img.shields.io/github/downloads/lingyan000/fluxdo/v0.2.1/)\n\n</div>\n\n**Download based on your device:**"
+        },
+        {
           "version": "0.2.0",
           "date": "2026-03-27T15:21:19Z",
           "downloadURL": "https://github.com/lingyan000/fluxdo/releases/download/v0.2.0/fluxdo-unsigned.ipa",
