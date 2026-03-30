@@ -10,6 +10,13 @@
       "iconURL": "https://lingyan000.github.io/fluxdo/icon.png",
       "versions": [
         {
+          "version": "0.2.4",
+          "date": "2026-03-30T13:43:06Z",
+          "downloadURL": "https://github.com/lingyan000/fluxdo/releases/download/v0.2.4/fluxdo-unsigned.ipa",
+          "size": 38298324,
+          "localizedDescription": "\n- ✨ 添加元宇宙授权遇到异常时的提示，close #172\n\n- 🐛 修复双栏模式下，分类/标签详情列表无法跳转的问题，fix #191\n\n- ✨ 下载功能优化，close #180\n\n- ✨ Cookie 逻辑精简优化，⚠️ 需要重新登录\n\n- ✨ CA 证书相关优化，IOS 编译优化\n\n- ✨ 模糊效果优化\n\n- 🐛: APP内置网页浏览注入 iOS 15 polyfill 修复JS缺失导致白屏问题 (#190)\n\n<div align=center>\n\n[![Release Downloads](https://img.shields.io/github/downloads/lingyan000/fluxdo/v0.2.4/total?style=flat-square&logo=github)](https://img.shields.io/github/downloads/lingyan000/fluxdo/v0.2.4/)\n\n</div>\n\n**Download based on your device:**\n\n<div align=left>\n<table>\n    <thead align=left>\n        <tr>\n            <th>OS</th>\n            <th>Download</th>\n        </tr>\n    </thead>\n    <tbody align=left>\n        <tr>\n        <td>Android</td>\n            <td>\n                <a href=\"https://github.com/lingyan000/fluxdo/releases/download/v0.2.4/fluxdo-arm64-v8a.apk\"><img src=\"https://img.shields.io/badge/APK-ARMv8-168039.svg?logo=android\"></a><br>\n                <a href=\"https://github.com/lingyan000/fluxdo/releases/download/v0.2.4/fluxdo-armeabi-v7a.apk\"><img src=\"https://img.shields.io/badge/APK-ARMv7-45bf55.svg?logo=android\"></a><br>\n                <a href=\"https://github.com/lingyan000/fluxdo/releases/download/v0.2.4/fluxdo-x86_64.apk\"><img src=\"https://img.shields.io/badge/APK-x64-96ed89.svg?logo=android\"></a>\n            </td>\n        </tr>\n        <tr>\n        <td>iOS</td>\n            <td>\n                <a href=\"https://github.com/lingyan000/fluxdo/releases/download/v0.2.4/fluxdo-unsigned.ipa\"><img src=\"https://img.shields.io/badge/IPA-Unsigned-0c6bff.svg?logo=apple\"></a>\n            </td>\n        </tr>\n        <tr>\n        <td>macOS</td>\n            <td>\n                <a href=\"https://github.com/lingyan000/fluxdo/releases/download/v0.2.4/fluxdo-macos-arm64.dmg\"><img src=\"https://img.shields.io/badge/DMG-Apple_Silicon-333333.svg?logo=apple\"></a><br>"
+        },
+        {
           "version": "0.2.3",
           "date": "2026-03-29T12:36:40Z",
           "downloadURL": "https://github.com/lingyan000/fluxdo/releases/download/v0.2.3/fluxdo-unsigned.ipa",
