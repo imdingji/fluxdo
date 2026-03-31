@@ -10,6 +10,13 @@
       "iconURL": "https://lingyan000.github.io/fluxdo/icon.png",
       "versions": [
         {
+          "version": "0.2.6",
+          "date": "2026-03-31T13:57:51Z",
+          "downloadURL": "https://github.com/lingyan000/fluxdo/releases/download/v0.2.6/fluxdo-unsigned.ipa",
+          "size": 38301391,
+          "localizedDescription": "\n- ✨ Windows 图标圆角，close #183\n\n- ✨ 桌面端快捷键支持\n\n- ✨ 桌面平台鼠标操作优化，ref #186\n\n- ✨ 支持私信反馈日志\n\n- ✨ 附件上传支持\n\n- ✨ MessageBus 日志记录优化\n\n- 🐛 修复 Cronet 适配器异常降级无法恢复的问题\n\n- ✨ 模糊效果优化\n\n<div align=center>\n\n[![Release Downloads](https://img.shields.io/github/downloads/lingyan000/fluxdo/v0.2.6/total?style=flat-square&logo=github)](https://img.shields.io/github/downloads/lingyan000/fluxdo/v0.2.6/)\n\n</div>\n\n**Download based on your device:**\n\n<div align=left>\n<table>\n    <thead align=left>\n        <tr>\n            <th>OS</th>\n            <th>Download</th>\n        </tr>\n    </thead>\n    <tbody align=left>\n        <tr>\n        <td>Android</td>\n            <td>\n                <a href=\"https://github.com/lingyan000/fluxdo/releases/download/v0.2.6/fluxdo-arm64-v8a.apk\"><img src=\"https://img.shields.io/badge/APK-ARMv8-168039.svg?logo=android\"></a><br>\n                <a href=\"https://github.com/lingyan000/fluxdo/releases/download/v0.2.6/fluxdo-armeabi-v7a.apk\"><img src=\"https://img.shields.io/badge/APK-ARMv7-45bf55.svg?logo=android\"></a><br>\n                <a href=\"https://github.com/lingyan000/fluxdo/releases/download/v0.2.6/fluxdo-x86_64.apk\"><img src=\"https://img.shields.io/badge/APK-x64-96ed89.svg?logo=android\"></a>\n            </td>\n        </tr>\n        <tr>\n        <td>iOS</td>\n            <td>\n                <a href=\"https://github.com/lingyan000/fluxdo/releases/download/v0.2.6/fluxdo-unsigned.ipa\"><img src=\"https://img.shields.io/badge/IPA-Unsigned-0c6bff.svg?logo=apple\"></a>\n            </td>\n        </tr>\n        <tr>\n        <td>macOS</td>"
+        },
+        {
           "version": "0.2.5",
           "date": "2026-03-30T16:44:59Z",
           "downloadURL": "https://github.com/lingyan000/fluxdo/releases/download/v0.2.5/fluxdo-unsigned.ipa",
