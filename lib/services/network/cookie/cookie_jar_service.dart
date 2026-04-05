@@ -32,9 +32,13 @@ class CookieJarService {
   late final PlatformCookieStrategy _strategy;
 
   /// 可配置的关键 cookie 名集合
-  static Set<String> criticalCookieNames = {
+  static const Set<String> sessionCookieNames = {
     '_t',
     '_forum_session',
+  };
+
+  static Set<String> criticalCookieNames = {
+    ...sessionCookieNames,
     'cf_clearance',
   };
 

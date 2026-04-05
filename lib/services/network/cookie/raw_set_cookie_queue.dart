@@ -6,7 +6,6 @@ import 'package:flutter/foundation.dart';
 import '../../../constants.dart';
 import 'cookie_jar_service.dart';
 import 'cookie_logger.dart';
-import 'raw_cookie_writer.dart';
 import 'strategy/platform_cookie_strategy.dart';
 
 /// Dio 收到的原始 Set-Cookie 头持久化队列。
@@ -45,15 +44,23 @@ class RawSetCookieQueue {
   /// 打开 WebView 前调用，将队列中的原始 Set-Cookie 头写入 WebView。
   ///
   /// 返回成功写入的条数。
-  Future<int> flushToWebView() async {
+  Future<int> flushToWebView({Set<String>? excludeCookieNames}) async {
     final queue = await _load();
     if (queue.isEmpty) {
       // 队列空（冷启动或长时间无请求），从 jar 的 rawSetCookie 字段兜底
-      return _flushFromJar();
+      return _flushFromJar(excludeCookieNames: excludeCookieNames);
     }
 
     final entries = queue
-        .where((e) => (e['url'] ?? '').isNotEmpty && (e['raw'] ?? '').isNotEmpty)
+        .where((e) {
+          final url = e['url'] ?? '';
+          final raw = e['raw'] ?? '';
+          if (url.isEmpty || raw.isEmpty) return false;
+          if (excludeCookieNames == null || excludeCookieNames.isEmpty) {
+            return true;
+          }
+          return !excludeCookieNames.contains(_extractCookieName(raw));
+        })
         .map((e) => (e['url']!, e['raw']!))
         .toList();
 
@@ -80,13 +87,19 @@ class RawSetCookieQueue {
   // ---------------------------------------------------------------------------
 
   /// 从 jar 的 rawSetCookie 字段兜底写入 WebView
-  Future<int> _flushFromJar() async {
+  Future<int> _flushFromJar({Set<String>? excludeCookieNames}) async {
     final jar = CookieJarService();
     if (!jar.isInitialized) await jar.initialize();
 
     final cookies = await jar.loadAllCanonicalCookies();
     final entries = cookies
-        .where((c) => c.rawSetCookie != null && c.rawSetCookie!.isNotEmpty)
+        .where((c) {
+          if (c.rawSetCookie == null || c.rawSetCookie!.isEmpty) return false;
+          if (excludeCookieNames == null || excludeCookieNames.isEmpty) {
+            return true;
+          }
+          return !excludeCookieNames.contains(c.name);
+        })
         .map((c) => (c.originUrl ?? AppConstants.baseUrl, c.rawSetCookie!))
         .toList();
 

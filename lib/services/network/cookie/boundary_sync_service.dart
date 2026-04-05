@@ -28,6 +28,7 @@ class BoundarySyncService {
     String? currentUrl,
     InAppWebViewController? controller,
     Set<String>? cookieNames,
+    bool allowLowConfidenceSessionCookies = false,
   }) async {
     final url = currentUrl ?? AppConstants.baseUrl;
     final uri = Uri.parse(url);
@@ -64,12 +65,26 @@ class BoundarySyncService {
         final value = wc.value?.toString() ?? '';
         if (value.isEmpty) continue;
         if (cookieNames != null && !cookieNames.contains(wc.name)) continue;
+        final isSessionCookie =
+            CookieJarService.sessionCookieNames.contains(wc.name);
+        final lowConfidenceSnapshot = _isLowConfidenceWebViewCookie(wc);
+        if (isSessionCookie &&
+            lowConfidenceSnapshot &&
+            !allowLowConfidenceSessionCookies) {
+          debugPrint(
+            '[BoundarySync] ${wc.name}: 跳过低置信度会话 Cookie 快照',
+          );
+          continue;
+        }
 
         // domain 处理：优先用平台返回值，旧 Android 兜底
         String? domain;
         if (wc.domain != null && wc.domain!.trim().isNotEmpty) {
           // 新设备：平台返回了 domain，直接使用
           domain = wc.domain;
+        } else if (isSessionCookie) {
+          // 会话 Cookie 缺失 domain 时，保持 host-only 语义，不再放大到子域名。
+          domain = null;
         } else {
           // 旧 Android（GET_COOKIE_INFO 不支持）：domain 为 null
           // 优先继承 jar 中已有的 domain
@@ -97,10 +112,13 @@ class BoundarySyncService {
           cookie = io.Cookie(wc.name, CookieValueCodec.encode(value));
         }
         cookie
-          ..domain = domain
           ..path = wc.path ?? '/'
-          ..secure = wc.isSecure ?? false
-          ..httpOnly = wc.isHttpOnly ?? false;
+          ..secure = wc.isSecure ?? (isSessionCookie ? uri.scheme == 'https' : false)
+          ..httpOnly =
+              wc.isHttpOnly ?? (isSessionCookie && allowLowConfidenceSessionCookies);
+        if (domain != null && domain.trim().isNotEmpty) {
+          cookie.domain = domain;
+        }
 
         if (wc.expiresDate != null) {
           cookie.expires = DateTime.fromMillisecondsSinceEpoch(wc.expiresDate!);
@@ -127,5 +145,20 @@ class BoundarySyncService {
     } catch (e) {
       CookieLogger.error(operation: 'boundary_sync', error: e.toString());
     }
+  }
+
+  bool _isLowConfidenceWebViewCookie(Cookie cookie) {
+    final hasDomain = cookie.domain != null && cookie.domain!.trim().isNotEmpty;
+    final hasPath = cookie.path != null && cookie.path!.trim().isNotEmpty;
+    final hasSecureFlag = cookie.isSecure != null;
+    final hasHttpOnlyFlag = cookie.isHttpOnly != null;
+    final hasExpiry = cookie.expiresDate != null;
+    final hasSameSite = cookie.sameSite != null;
+    return !(hasDomain ||
+        hasPath ||
+        hasSecureFlag ||
+        hasHttpOnlyFlag ||
+        hasExpiry ||
+        hasSameSite);
   }
 }

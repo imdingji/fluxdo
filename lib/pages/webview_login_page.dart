@@ -15,6 +15,7 @@ import '../services/network/cookie/boundary_sync_service.dart';
 import '../services/network/cookie/cookie_jar_service.dart';
 import '../services/network/cookie/csrf_token_service.dart';
 import '../services/network/cookie/raw_set_cookie_queue.dart';
+import '../services/network/cookie/session_snapshot.dart';
 import '../services/toast_service.dart';
 import '../services/hcaptcha_accessibility_service.dart';
 import '../services/webview_settings.dart';
@@ -50,11 +51,14 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
   String _url = AppConstants.baseUrl;
   double _progress = 0;
   String? _savedUsername;
+  Future<int>? _initialCookieFlushFuture;
 
   @override
   void initState() {
     super.initState();
-    RawSetCookieQueue.instance.flushToWebView();
+    _initialCookieFlushFuture = RawSetCookieQueue.instance.flushToWebView(
+      excludeCookieNames: CookieJarService.sessionCookieNames,
+    );
     HCaptchaAccessibilityService().syncToWebView();
     _loadSavedUsername();
   }
@@ -399,24 +403,20 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
       }
 
       currentUrl ??= (await controller.getUrl())?.toString();
+      final stableSession = await _confirmStableLoginSession(
+        controller,
+        currentUrl: currentUrl,
+      );
+      if (stableSession == null) {
+        debugPrint('[Login] 已检测到 currentUser=$username，但会话 Cookie 尚未稳定');
+        _scheduleLoginRecheck(controller);
+        return;
+      }
       if (mounted && !_isCompletingLogin) {
         setState(() {
           _isCompletingLogin = true;
           _isLoading = true;
         });
-      }
-      await BoundarySyncService.instance.syncFromWebView(
-        currentUrl: currentUrl,
-        controller: controller,
-      );
-      final tToken = await _readTTokenFromWebView(
-        controller,
-        currentUrl: currentUrl,
-      );
-      if (tToken == null || tToken.isEmpty) {
-        debugPrint('[Login] 已检测到 currentUser=$username，但尚未读到 _t，等待后续同步');
-        _scheduleLoginRecheck(controller);
-        return;
       }
 
       _loginHandled = true;
@@ -424,7 +424,7 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
         controller,
         username: username,
         currentUrl: currentUrl,
-        webViewToken: tToken,
+        webViewSession: stableSession,
       );
 
       if (mounted) {
@@ -444,7 +444,7 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
     InAppWebViewController controller, {
     required String username,
     required String? currentUrl,
-    required String webViewToken,
+    required SessionSnapshot webViewSession,
   }) async {
     await _service.saveUsername(username);
     await _syncCsrfFromPage(controller);
@@ -455,9 +455,12 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
     await BoundarySyncService.instance.syncFromWebView(
       currentUrl: currentUrl,
       controller: controller,
+      cookieNames: CookieJarService.sessionCookieNames,
+      allowLowConfidenceSessionCookies: true,
     );
 
     final jarToken = await _cookieJar.getTToken();
+    final webViewToken = webViewSession.tToken!;
     final finalToken = (jarToken != null && jarToken.isNotEmpty)
         ? jarToken
         : webViewToken;
@@ -475,6 +478,7 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
       'finalTokenLen': finalToken.length,
       'tokenMatch': tokenMatch,
       'jarTokenMissing': jarToken == null || jarToken.isEmpty,
+      'hasForumSession': webViewSession.hasForumSession,
     });
     if (!tokenMatch) {
       debugPrint(
@@ -583,7 +587,54 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
     await _checkLoginStatus(controller, currentUrl: resourceUrl);
   }
 
-  Future<String?> _readTTokenFromWebView(
+  Future<void> _awaitInitialCookieFlush() async {
+    final future = _initialCookieFlushFuture;
+    if (future == null) return;
+    try {
+      await future.timeout(const Duration(seconds: 2));
+    } catch (e) {
+      debugPrint('[Login] 等待初始 Cookie 回放完成失败: $e');
+    }
+  }
+
+  Future<SessionSnapshot?> _confirmStableLoginSession(
+    InAppWebViewController controller, {
+    String? currentUrl,
+  }) async {
+    await _awaitInitialCookieFlush();
+
+    SessionSnapshot? previous;
+    const attempts = 4;
+    for (var i = 0; i < attempts; i++) {
+      if (_loginHandled || !mounted || _controller != controller) {
+        return null;
+      }
+
+      final username = await _readCurrentUsername(controller);
+      if (username == null || username.isEmpty) {
+        return null;
+      }
+
+      final snapshot = await _readSessionSnapshotFromWebView(
+        controller,
+        currentUrl: currentUrl,
+      );
+      if (snapshot != null) {
+        if (previous != null && snapshot.isStableWith(previous)) {
+          return snapshot;
+        }
+        previous = snapshot;
+      }
+
+      if (i < attempts - 1) {
+        await Future.delayed(const Duration(milliseconds: 180));
+      }
+    }
+
+    return null;
+  }
+
+  Future<SessionSnapshot?> _readSessionSnapshotFromWebView(
     InAppWebViewController controller, {
     String? currentUrl,
   }) async {
@@ -595,19 +646,25 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
       if (currentUrl != null && currentUrl.isNotEmpty) currentUrl,
     };
 
+    String? tToken;
+    String? forumSession;
     for (final url in candidates) {
       final cookies = await cookieManager.getCookies(url: WebUri(url));
 
       for (final cookie in cookies) {
-        if (cookie.name == '_t' && cookie.value.isNotEmpty) {
-          return cookie.value;
+        if (cookie.value.isEmpty) continue;
+        if (cookie.name == '_t' && tToken == null) {
+          tToken = cookie.value;
+        } else if (cookie.name == '_forum_session' && forumSession == null) {
+          forumSession = cookie.value;
         }
       }
-    }
-
-    final jarToken = await _cookieJar.getTToken();
-    if (jarToken != null && jarToken.isNotEmpty) {
-      return jarToken;
+      if (tToken != null && tToken.isNotEmpty) {
+        return SessionSnapshot.fromValues(
+          tToken: tToken,
+          forumSession: forumSession,
+        );
+      }
     }
 
     return null;

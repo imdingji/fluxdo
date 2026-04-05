@@ -24,6 +24,7 @@ import '../auth_session.dart';
 import '../cf_clearance_refresh_service.dart';
 import '../network/cookie/csrf_token_service.dart';
 import '../network/cookie/cookie_jar_service.dart';
+import '../network/cookie/session_snapshot.dart';
 import '../cf_challenge_service.dart';
 import '../message_bus_service.dart';
 import '../network/discourse_dio.dart';

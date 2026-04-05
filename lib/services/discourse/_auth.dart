@@ -16,7 +16,7 @@ mixin _AuthMixin on _DiscourseServiceBase {
           }
 
           final sessionState = await _readSessionCookieState();
-          final liveToken = sessionState['tToken'];
+          final liveToken = sessionState.tToken;
           if (liveToken != _tToken) {
             if ((liveToken == null || liveToken.isEmpty) &&
                 _tToken != null &&
@@ -38,7 +38,7 @@ mixin _AuthMixin on _DiscourseServiceBase {
                 : null;
           }
 
-          options.extra['_sessionCookieFingerprint'] = sessionState['fingerprint'];
+          options.extra['_sessionCookieFingerprint'] = sessionState.fingerprint;
 
           if (_tToken != null && _tToken!.isNotEmpty) {
             options.headers['Discourse-Logged-In'] = 'true';
@@ -159,7 +159,7 @@ mixin _AuthMixin on _DiscourseServiceBase {
           if (!skipAuthCheck &&
               data is Map &&
               data['error_type'] == 'not_logged_in') {
-            final jarTToken = sessionState['tToken'];
+            final jarTToken = sessionState.tToken;
             await AuthLogService().logAuthInvalid(
               source: 'error_response',
               reason: data['error_type']?.toString() ?? 'not_logged_in',
@@ -190,18 +190,17 @@ mixin _AuthMixin on _DiscourseServiceBase {
     );
   }
 
-  Future<Map<String, String?>> _readSessionCookieState() async {
+  Future<SessionSnapshot> _readSessionCookieState() async {
     final tToken = await _cookieJar.getTToken();
     final forumSession = await _cookieJar.getCookieValue('_forum_session');
 
-    return {
-      'tToken': tToken,
-      'forumSession': forumSession,
-      'fingerprint': (tToken != null && tToken.isNotEmpty) ? tToken : null,
-    };
+    return SessionSnapshot.fromValues(
+      tToken: tToken,
+      forumSession: forumSession,
+    );
   }
 
-  Future<Map<String, String?>> _syncSessionStateFromResponse(
+  Future<SessionSnapshot> _syncSessionStateFromResponse(
     RequestOptions requestOptions, {
     Response? response,
     required String phase,
@@ -209,7 +208,7 @@ mixin _AuthMixin on _DiscourseServiceBase {
     final sessionState = await _readSessionStateAfterResponse(response);
     final beforeFingerprint =
         requestOptions.extra['_sessionCookieFingerprint'] as String?;
-    final afterFingerprint = sessionState['fingerprint'];
+    final afterFingerprint = sessionState.fingerprint;
 
     if (beforeFingerprint == afterFingerprint) {
       return sessionState;
@@ -235,25 +234,22 @@ mixin _AuthMixin on _DiscourseServiceBase {
       'hasSessionAfter': afterFingerprint != null && afterFingerprint.isNotEmpty,
       'beforeTLen': beforeFingerprint?.length,
       'afterTLen': afterFingerprint?.length,
-      'hasForumSessionAfter': sessionState['forumSession'] != null,
+      'hasForumSessionAfter': sessionState.hasForumSession,
     });
 
     return sessionState;
   }
 
-  Future<Map<String, String?>> _readSessionStateAfterResponse(
+  Future<SessionSnapshot> _readSessionStateAfterResponse(
     Response? response,
   ) async {
     final tTokenFromResponse = _extractTTokenFromSetCookie(response);
     if (tTokenFromResponse != null || _hasExplicitTDeletion(response)) {
       final forumSession = await _cookieJar.getCookieValue('_forum_session');
-      return {
-        'tToken': tTokenFromResponse,
-        'forumSession': forumSession,
-        'fingerprint': (tTokenFromResponse != null && tTokenFromResponse.isNotEmpty)
-            ? tTokenFromResponse
-            : null,
-      };
+      return SessionSnapshot.fromValues(
+        tToken: tTokenFromResponse,
+        forumSession: forumSession,
+      );
     }
 
     return _readSessionCookieState();
@@ -300,11 +296,11 @@ mixin _AuthMixin on _DiscourseServiceBase {
   }
 
   void _syncMemoryTokenFromSessionState(
-    Map<String, String?> sessionState, {
+    SessionSnapshot sessionState, {
     bool logWhenCleared = false,
     RequestOptions? requestOptions,
   }) {
-    final tToken = sessionState['tToken'];
+    final tToken = sessionState.tToken;
 
     if (tToken != null && tToken.isNotEmpty) {
       _tToken = tToken;
