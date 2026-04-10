@@ -36,6 +36,7 @@ import 'services/preloaded_data_service.dart';
 import 'services/network/doh/network_settings_service.dart';
 import 'services/network/proxy/proxy_settings_service.dart';
 import 'services/network/rhttp/rhttp_settings_service.dart';
+import 'services/network/webview/webview_adapter_settings_service.dart';
 import 'package:rhttp/rhttp.dart' as rhttp;
 import 'services/network/vpn_auto_toggle_service.dart';
 import 'services/hcaptcha_accessibility_service.dart';
@@ -161,6 +162,8 @@ Future<void> main() async {
   ]);
   // rhttp (Rust reqwest) 初始化：在 ProxySettingsService 之后、NetworkSettingsService 之前
   await RhttpSettingsService.instance.initialize(prefs);
+  // WebView 适配器设置
+  await WebViewAdapterSettingsService.instance.initialize(prefs);
   try {
     final rhttp = await Future.any([
       _initRhttp(),

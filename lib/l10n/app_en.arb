@@ -1801,6 +1801,11 @@
   },
   "rhttpEngine_echFallbackHint": "When ECH is on, WebView still falls back to local proxy; rhttp direct connection tries its own ECH first",
 
+  "webviewAdapter_title": "WebView Network Engine",
+  "webviewAdapter_enabledDesc": "Main site API requests sent via browser engine",
+  "webviewAdapter_disabledDesc": "Use browser engine for requests, may improve login stability",
+  "webviewAdapter_hint": "Only main site API requests go through WebView; images and push notifications are not affected",
+
   "dohSettings_suppressedByVpn": "Auto-disabled by VPN, will restore when VPN disconnects",
   "dohSettings_enabledDesc": "Encrypted DNS resolution enabled",
   "dohSettings_disabledDesc": "Using system default DNS",

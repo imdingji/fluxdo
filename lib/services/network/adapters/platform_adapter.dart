@@ -8,6 +8,7 @@ import 'package:native_dio_adapter/native_dio_adapter.dart';
 import '../doh/network_settings_service.dart';
 import '../proxy/proxy_settings_service.dart';
 import '../rhttp/rhttp_settings_service.dart';
+import '../webview/webview_adapter_settings_service.dart';
 import 'cronet_fallback_service.dart';
 import 'network_http_adapter.dart';
 import '../../../l10n/s.dart';
@@ -196,6 +197,11 @@ class _GatewayAdapterWrapper implements HttpClientAdapter {
   _GatewayAdapterWrapper(this._inner);
 
   final HttpClientAdapter _inner;
+  WebViewHttpAdapter? _webViewAdapter;
+
+  WebViewHttpAdapter _getWebViewAdapter() {
+    return _webViewAdapter ??= WebViewHttpAdapter();
+  }
 
   @override
   Future<ResponseBody> fetch(
@@ -203,6 +209,11 @@ class _GatewayAdapterWrapper implements HttpClientAdapter {
     Stream<Uint8List>? requestStream,
     Future<void>? cancelFuture,
   ) async {
+    // WebView 适配器：主域名 API 请求走 WebView 内核（真正的浏览器 TLS 指纹）
+    if (WebViewAdapterSettingsService.instance.shouldUseWebView(options.uri)) {
+      return _getWebViewAdapter().fetch(options, requestStream, cancelFuture);
+    }
+
     final settings = NetworkSettingsService.instance;
     final proxySettings = ProxySettingsService.instance;
     final rhttpSettings = RhttpSettingsService.instance;
@@ -254,7 +265,11 @@ class _GatewayAdapterWrapper implements HttpClientAdapter {
   }
 
   @override
-  void close({bool force = false}) => _inner.close(force: force);
+  void close({bool force = false}) {
+    _webViewAdapter?.close(force: force);
+    _webViewAdapter = null;
+    _inner.close(force: force);
+  }
 }
 
 /// 动态适配器：每次请求时根据设置 version 变化自动切换底层适配器

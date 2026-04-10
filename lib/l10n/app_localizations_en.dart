@@ -5415,6 +5415,21 @@ class AppLocalizationsEn extends AppLocalizations {
       'When ECH is on, WebView still falls back to local proxy; rhttp direct connection tries its own ECH first';
 
   @override
+  String get webviewAdapter_title => 'WebView Network Engine';
+
+  @override
+  String get webviewAdapter_enabledDesc =>
+      'Main site API requests sent via browser engine';
+
+  @override
+  String get webviewAdapter_disabledDesc =>
+      'Use browser engine for requests, may improve login stability';
+
+  @override
+  String get webviewAdapter_hint =>
+      'Only main site API requests go through WebView; images and push notifications are not affected';
+
+  @override
   String get dohSettings_suppressedByVpn =>
       'Auto-disabled by VPN, will restore when VPN disconnects';
 

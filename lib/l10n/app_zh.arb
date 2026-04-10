@@ -1983,6 +1983,11 @@
   },
   "rhttpEngine_echFallbackHint": "ECH 启用时 WebView 仍通过本地代理兜底；rhttp 直连会优先尝试自身的 ECH",
 
+  "webviewAdapter_title": "WebView 网络引擎",
+  "webviewAdapter_enabledDesc": "主站 API 请求通过浏览器内核发送",
+  "webviewAdapter_disabledDesc": "使用浏览器内核发送请求，可改善登录稳定性",
+  "webviewAdapter_hint": "仅主站 API 请求通过 WebView 发送，图片加载和消息推送不受影响",
+
   "dohSettings_suppressedByVpn": "已被 VPN 自动关闭，VPN 断开后将自动恢复",
   "dohSettings_enabledDesc": "已启用加密 DNS 解析",
   "dohSettings_disabledDesc": "使用系统默认 DNS",

@@ -9857,6 +9857,30 @@ abstract class AppLocalizations {
   /// **'ECH 启用时 WebView 仍通过本地代理兜底；rhttp 直连会优先尝试自身的 ECH'**
   String get rhttpEngine_echFallbackHint;
 
+  /// No description provided for @webviewAdapter_title.
+  ///
+  /// In zh, this message translates to:
+  /// **'WebView 网络引擎'**
+  String get webviewAdapter_title;
+
+  /// No description provided for @webviewAdapter_enabledDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'主站 API 请求通过浏览器内核发送'**
+  String get webviewAdapter_enabledDesc;
+
+  /// No description provided for @webviewAdapter_disabledDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'使用浏览器内核发送请求，可改善登录稳定性'**
+  String get webviewAdapter_disabledDesc;
+
+  /// No description provided for @webviewAdapter_hint.
+  ///
+  /// In zh, this message translates to:
+  /// **'仅主站 API 请求通过 WebView 发送，图片加载和消息推送不受影响'**
+  String get webviewAdapter_hint;
+
   /// No description provided for @dohSettings_suppressedByVpn.
   ///
   /// In zh, this message translates to:
