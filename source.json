@@ -10,6 +10,13 @@
       "iconURL": "https://lingyan000.github.io/fluxdo/icon.png",
       "versions": [
         {
+          "version": "0.2.7",
+          "date": "2026-04-12T08:00:03Z",
+          "downloadURL": "https://github.com/lingyan000/fluxdo/releases/download/v0.2.7/fluxdo-unsigned.ipa",
+          "size": 38435470,
+          "localizedDescription": "\n- ✨ 自检优化\n\n- ✨ 优化 boost 显示\n\n- ✨ 解决应用内清除 Cookie 的隐患\n\n- ✨ 移除 Android CDP 同步 Cookie\n\n- ✨ 一些功能优化\n\n- ✨ 样式优化\n\n- ✨ Webview 适配器支持\n\n- ✨ 嵌套视图实现（实验性）\n\n- ✨  boost 支持\n\n- ✨ 适配器优化\n\n- ✨ 登录流程优化\n\n\n\n- ✨ 请求链路优化\n\n- ✨ 桌面端快捷键完善\n\n- 🐛 修复 Windows 上 WebView 不被代理的问题，fix #199\n\n- ✨ CF 自动续期逻辑优化\n\n<div align=center>\n\n[![Release Downloads](https://img.shields.io/github/downloads/lingyan000/fluxdo/v0.2.7/total?style=flat-square&logo=github)](https://img.shields.io/github/downloads/lingyan000/fluxdo/v0.2.7/)\n\n</div>\n\n**Download based on your device:**\n\n<div align=left>\n<table>\n    <thead align=left>\n        <tr>\n            <th>OS</th>\n            <th>Download</th>\n        </tr>\n    </thead>\n    <tbody align=left>"
+        },
+        {
           "version": "0.2.6",
           "date": "2026-03-31T13:57:51Z",
           "downloadURL": "https://github.com/lingyan000/fluxdo/releases/download/v0.2.6/fluxdo-unsigned.ipa",
