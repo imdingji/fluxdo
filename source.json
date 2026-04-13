@@ -10,6 +10,13 @@
       "iconURL": "https://lingyan000.github.io/fluxdo/icon.png",
       "versions": [
         {
+          "version": "0.2.8",
+          "date": "2026-04-13T14:59:31Z",
+          "downloadURL": "https://github.com/lingyan000/fluxdo/releases/download/v0.2.8/fluxdo-unsigned.ipa",
+          "size": 38439349,
+          "localizedDescription": "\n- 🐛 CI 修复\n\n- ✨ 修复 Windows 无法分享的问题，close #200\n\n- ✨ 修复 windows 无法上传图片，close #212\n\n- ✨ 网络检查性能优化，ref #205\n\n- ✨ 通知、私信功能优化，并添加私信列表，close #216\n\n- ♻️ 取消提交多语言的 merged\n\n- 🐛 修复 Windows 无法关闭的问题\n\n- ♻️ 多语言能力模块化设计\n\n- 🐛 修复某些场景无法加载更多帖子的问题\n\n- 🐛 修复帖子内容更新后无法发送 boost\n\n- ✨ 保守登出复检机制\n\n- ✨ WebView 适配器缓存问题修复\n\n- ✨ 日志记录优化\n\n- 🐛 修复 cookieJar 同步到 webview 的异常\n\n\n<div align=center>\n\n[![Release Downloads](https://img.shields.io/github/downloads/lingyan000/fluxdo/v0.2.8/total?style=flat-square&logo=github)](https://img.shields.io/github/downloads/lingyan000/fluxdo/v0.2.8/)\n\n</div>\n\n**Download based on your device:**\n\n<div align=left>\n<table>\n    <thead align=left>\n        <tr>\n            <th>OS</th>\n            <th>Download</th>\n        </tr>\n    </thead>\n    <tbody align=left>\n        <tr>\n        <td>Android</td>\n            <td>"
+        },
+        {
           "version": "0.2.7",
           "date": "2026-04-12T08:00:03Z",
           "downloadURL": "https://github.com/lingyan000/fluxdo/releases/download/v0.2.7/fluxdo-unsigned.ipa",
