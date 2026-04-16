@@ -55,6 +55,9 @@ class _WebViewPageState extends ConsumerState<WebViewPage> {
   bool _canGoForward = false;
   late final Future<void> _cookieSyncFuture;
 
+  /// 对话框打开期间为 true，暂停 WebView 回调的 setState 以避免动画卡顿
+  bool _dialogOpen = false;
+
   @override
   void initState() {
     super.initState();
@@ -256,29 +259,29 @@ class _WebViewPageState extends ConsumerState<WebViewPage> {
                         }
                       },
                       onLoadStart: (controller, url) {
-                        setState(() {
-                          _isLoading = true;
-                          _currentUrl = url?.toString() ?? '';
-                        });
+                        _isLoading = true;
+                        _currentUrl = url?.toString() ?? '';
+                        if (!_dialogOpen) setState(() {});
                       },
                       onProgressChanged: (controller, progress) {
-                        setState(() => _progress = progress / 100);
+                        _progress = progress / 100;
+                        if (!_dialogOpen) setState(() {});
                       },
                       onLoadStop: (controller, url) async {
-                        setState(() => _isLoading = false);
+                        _isLoading = false;
+                        if (!_dialogOpen) setState(() {});
                         await WebViewSettings.injectScrollFix(controller);
                         final title = await controller.getTitle();
                         final canGoBack = await controller.canGoBack();
                         final canGoForward = await controller.canGoForward();
                         final urlString = url?.toString();
-                        setState(() {
-                          _currentUrl = urlString ?? '';
-                          _canGoBack = canGoBack;
-                          _canGoForward = canGoForward;
-                          if (title != null && title.isNotEmpty) {
-                            _currentTitle = title;
-                          }
-                        });
+                        _currentUrl = urlString ?? '';
+                        _canGoBack = canGoBack;
+                        _canGoForward = canGoForward;
+                        if (title != null && title.isNotEmpty) {
+                          _currentTitle = title;
+                        }
+                        if (!_dialogOpen) setState(() {});
                         if (widget.injectCss != null) {
                           await controller.injectCSSCode(
                             source: widget.injectCss!,
@@ -297,15 +300,15 @@ class _WebViewPageState extends ConsumerState<WebViewPage> {
                             final canGoForward = await controller
                                 .canGoForward();
                             final urlString = url?.toString();
-                            setState(() {
-                              _currentUrl = urlString ?? '';
-                              _canGoBack = canGoBack;
-                              _canGoForward = canGoForward;
-                            });
+                            _currentUrl = urlString ?? '';
+                            _canGoBack = canGoBack;
+                            _canGoForward = canGoForward;
+                            if (!_dialogOpen) setState(() {});
                           },
                       onTitleChanged: (controller, title) {
                         if (title != null && title.isNotEmpty) {
-                          setState(() => _currentTitle = title);
+                          _currentTitle = title;
+                          if (!_dialogOpen) setState(() {});
                         }
                       },
                       onDownloadStartRequest: (controller, request) {
@@ -402,6 +405,7 @@ class _WebViewPageState extends ConsumerState<WebViewPage> {
 
   void _showUrlInput() {
     final controller = TextEditingController(text: _currentUrl);
+    _dialogOpen = true;
     showAppDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -436,7 +440,10 @@ class _WebViewPageState extends ConsumerState<WebViewPage> {
           ),
         ],
       ),
-    );
+    ).whenComplete(() {
+      _dialogOpen = false;
+      if (mounted) setState(() {});
+    });
   }
 
   void _navigateToUrl(String input) {
