@@ -299,7 +299,7 @@ class MainActivity : FlutterActivity() {
         for (wv in webViews) {
             WebSettingsCompat.setWebAuthenticationSupport(
                 wv.settings,
-                WebSettingsCompat.WEB_AUTHENTICATION_SUPPORT_FOR_APP
+                WebSettingsCompat.WEB_AUTHENTICATION_SUPPORT_FOR_BROWSER
             )
         }
         Log.i(TAG, "WebAuthn: 已为 ${webViews.size} 个 WebView 启用 PassKey 支持")
