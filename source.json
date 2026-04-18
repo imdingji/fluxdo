@@ -10,6 +10,13 @@
       "iconURL": "https://lingyan000.github.io/fluxdo/icon.png",
       "versions": [
         {
+          "version": "0.2.9",
+          "date": "2026-04-18T08:11:45Z",
+          "downloadURL": "https://github.com/lingyan000/fluxdo/releases/download/v0.2.9/fluxdo-unsigned.ipa",
+          "size": 38440556,
+          "localizedDescription": "\n- ✨ 对话框模糊性能优化\n\n- ✨ PassKey 支持\n\n- ✨ 内置浏览器网址输入弹框优化\n\n- ✨ 请求添加 Discourse-Present 头\n\n- ✨ 内置浏览器性能优化\n\n- ✨ 添加指纹上报\n\n- ✨ 优化 DOH 保活检测\n\n- 🐛 修复一些无感知异常\n\n- ✨ 优化通知列表更新逻辑\n\n- ♻️ 代码优化\n\n- ✨ 新增侧栏分类快捷入口与 Windows WebView 兜底逻辑 (#217)\n\n\n<div align=center>\n\n[![Release Downloads](https://img.shields.io/github/downloads/lingyan000/fluxdo/v0.2.9/total?style=flat-square&logo=github)](https://img.shields.io/github/downloads/lingyan000/fluxdo/v0.2.9/)\n\n</div>\n\n**Download based on your device:**\n\n<div align=left>\n<table>\n    <thead align=left>\n        <tr>\n            <th>OS</th>\n            <th>Download</th>\n        </tr>\n    </thead>\n    <tbody align=left>\n        <tr>\n        <td>Android</td>\n            <td>\n                <a href=\"https://github.com/lingyan000/fluxdo/releases/download/v0.2.9/fluxdo-arm64-v8a.apk\"><img src=\"https://img.shields.io/badge/APK-ARMv8-168039.svg?logo=android\"></a><br>\n                <a href=\"https://github.com/lingyan000/fluxdo/releases/download/v0.2.9/fluxdo-armeabi-v7a.apk\"><img src=\"https://img.shields.io/badge/APK-ARMv7-45bf55.svg?logo=android\"></a><br>\n                <a href=\"https://github.com/lingyan000/fluxdo/releases/download/v0.2.9/fluxdo-x86_64.apk\"><img src=\"https://img.shields.io/badge/APK-x64-96ed89.svg?logo=android\"></a>\n            </td>\n        </tr>\n        <tr>"
+        },
+        {
           "version": "0.2.8",
           "date": "2026-04-13T14:59:31Z",
           "downloadURL": "https://github.com/lingyan000/fluxdo/releases/download/v0.2.8/fluxdo-unsigned.ipa",
