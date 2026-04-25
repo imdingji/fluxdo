@@ -14,6 +14,7 @@ import '../../utils/link_launcher.dart';
 import '../../utils/quote_builder.dart';
 import 'package:uuid/uuid.dart';
 import 'dart:async';
+import 'dart:math' as math;
 import '../../models/draft.dart';
 import '../../models/topic.dart';
 import '../../utils/responsive.dart';
@@ -32,6 +33,7 @@ import '../../services/log/log_writer.dart';
 import '../../services/navigation/app_route_observer.dart';
 import '../../widgets/content/lazy_load_scope.dart';
 import '../../widgets/post/post_item_skeleton.dart';
+import '../../widgets/post/post_item/widgets/post_flag_sheet.dart';
 import '../../widgets/post/post_replies_sheet.dart';
 import '../../widgets/post/reply_sheet.dart';
 import '../../widgets/topic/topic_progress.dart';
@@ -108,11 +110,12 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
   /// 唯一实例 ID，确保每次打开页面都创建新的 provider 实例
   /// 支持外部传入以在布局切换时复用同一个 provider
   late final String _instanceId = widget.instanceId ?? const Uuid().v4();
+  late final int? _providerPostNumber;
 
-  /// Provider 参数（简化重复创建）
+  /// Provider 参数只携带首次构建所需的定位信息，运行时浏览位置由 controller 单独维护。
   TopicDetailParams get _params => TopicDetailParams(
     widget.topicId,
-    postNumber: _controller.currentPostNumber,
+    postNumber: _providerPostNumber,
     instanceId: _instanceId,
   );
 
@@ -156,18 +159,27 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
   late final PageController _pageController;
   final ValueNotifier<int> _currentPageNotifier = ValueNotifier<int>(0);
   bool _aiGuideChecked = false;
-  // 缓存清理快捷键的回调，避免在 dispose 中使用 ref.read
-  VoidCallback? _clearShortcuts;
+  late final ShortcutScopeBinding _shortcutScopeBinding = ShortcutScopeBinding(
+    ref: ref,
+    scope: widget.embeddedMode ? ShortcutScope.detail : ShortcutScope.context,
+  );
   ModalRoute<dynamic>? _route;
   bool _isRouteVisible = true;
   bool _isParentActive = true;
   bool _isScreenTrackRunning = false;
+
+  int? get _resolvedViewportPostNumber =>
+      _controller.viewportPostNumber ?? widget.scrollToPostNumber;
+
+  int? get _resolvedShortcutPostNumber =>
+      _controller.effectivePostNumberForActions ?? _resolvedViewportPostNumber;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _isParentActive = widget.parentActive;
+    _providerPostNumber = widget.scrollToPostNumber;
 
     _expandController = AnimationController(
       vsync: this,
@@ -235,10 +247,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
     // 桌面端：注册 J/K 帖子导航 + AI 面板切换
     if (PlatformUtils.isDesktop) {
       toggleAiPanelNotifier.addListener(_onToggleAiPanel);
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        _registerPostShortcuts();
-      });
+      _schedulePostShortcutRegistration();
     }
   }
 
@@ -278,21 +287,87 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
       ShortcutAction.previousItem: () {
         if (mounted) _scrollToPreviousPost();
       },
+      ShortcutAction.jumpToPost: () {
+        if (mounted) _showJumpToPostDialog();
+      },
+      ShortcutAction.goToUnreadPost: () {
+        if (mounted) unawaited(_jumpToUnreadPost());
+      },
+      ShortcutAction.replyTopic: () {
+        if (mounted) unawaited(_handleReply(null));
+      },
+      ShortcutAction.shareTopic: () {
+        if (mounted) _shareTopic();
+      },
+      ShortcutAction.bookmarkTopic: () {
+        if (!mounted) return;
+        _handleBookmark(ref.read(topicDetailProvider(_params).notifier));
+      },
+      ShortcutAction.replyPost: () {
+        if (!mounted) return;
+        final replyTarget = _currentReplyTargetPost();
+        unawaited(_handleReply(replyTarget));
+      },
+      ShortcutAction.quotePost: () {
+        if (!mounted) return;
+        final post = _currentShortcutPost();
+        if (post == null) return;
+        unawaited(_handleQuotePost(post));
+      },
+      ShortcutAction.likePost: () {
+        if (!mounted) return;
+        final post = _currentShortcutPost();
+        if (post == null) return;
+        unawaited(_togglePostLike(post));
+      },
+      ShortcutAction.sharePost: () {
+        if (!mounted) return;
+        final post = _currentShortcutPost();
+        if (post == null) return;
+        _sharePost(post);
+      },
+      ShortcutAction.bookmarkPost: () {
+        if (!mounted) return;
+        final post = _currentShortcutPost();
+        if (post == null) return;
+        unawaited(_handlePostBookmark(post));
+      },
+      ShortcutAction.editPost: () {
+        if (!mounted) return;
+        final post = _currentShortcutPost();
+        if (post == null || !post.canEdit) return;
+        unawaited(_handleEdit(post));
+      },
+      ShortcutAction.flagPost: () {
+        if (!mounted) return;
+        final post = _currentShortcutPost();
+        if (post == null) return;
+        _showFlagPostSheet(post);
+      },
+      ShortcutAction.deletePost: () {
+        if (!mounted) return;
+        final post = _currentShortcutPost();
+        if (post == null || !post.canDelete || post.deletedAt != null) return;
+        unawaited(_handleDeletePost(post));
+      },
     };
-    final notifier = widget.embeddedMode
-        ? ref.read(detailShortcutsProvider.notifier)
-        : ref.read(contextShortcutsProvider.notifier);
-    _clearShortcuts = () => notifier.state = {};
-    if (widget.embeddedMode) {
-      notifier.state = shortcuts;
-    } else {
-      notifier.state = {
-        ...shortcuts,
-        ShortcutAction.closeOverlay: () {
-          if (mounted) Navigator.of(context).maybePop();
-        },
-      };
-    }
+    final registeredShortcuts = widget.embeddedMode
+        ? shortcuts
+        : {
+            ...shortcuts,
+            ShortcutAction.closeOverlay: () {
+              if (mounted) Navigator.of(context).maybePop();
+            },
+          };
+    _shortcutScopeBinding.register(context, registeredShortcuts);
+  }
+
+  void _schedulePostShortcutRegistration() {
+    if (!PlatformUtils.isDesktop) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _registerPostShortcuts();
+    });
   }
 
   @override
@@ -319,6 +394,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
     _route = route;
     appRouteObserver.subscribe(this, route);
     _isRouteVisible = route.isCurrent;
+    _schedulePostShortcutRegistration();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _syncScreenTrackState(reason: 'route_subscribed');
@@ -344,9 +420,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
     _controller.dispose();
     if (PlatformUtils.isDesktop) {
       toggleAiPanelNotifier.removeListener(_onToggleAiPanel);
-      // 延迟注销快捷键，避免在 widget tree finalizing 期间修改 provider
-      final clear = _clearShortcuts;
-      if (clear != null) Future(clear);
+      _shortcutScopeBinding.disposeDeferred();
     }
     // 延迟清理搜索状态，避免在 widget tree finalizing 期间修改 provider
     Future(_topicSearchNotifier.exitSearchMode);
@@ -362,11 +436,13 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
   @override
   void didPush() {
     _setRouteVisible(true, 'did_push');
+    _schedulePostShortcutRegistration();
   }
 
   @override
   void didPopNext() {
     _setRouteVisible(true, 'did_pop_next');
+    _schedulePostShortcutRegistration();
   }
 
   @override
@@ -436,7 +512,8 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
       // header 不在视图中（未加载或滚动到了远处）
       // 如果滚动位置在顶部附近（比如刚切换视图模式），header 很快就会出现，
       // 先设为不可见状态，等 header 渲染后由滚动事件再次触发更新
-      final atTop = _controller.scrollController.hasClients &&
+      final atTop =
+          _controller.scrollController.hasClients &&
           _controller.scrollController.offset <= barHeight;
       if (atTop) {
         _showTitleNotifier.value = false;
@@ -510,8 +587,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
         return;
       }
 
-      final currentPostNumber =
-          _controller.currentPostNumber ?? widget.scrollToPostNumber;
+      final currentPostNumber = _resolvedViewportPostNumber;
       ref
           .read(selectedTopicProvider.notifier)
           .select(
@@ -855,7 +931,11 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.link, size: 20, color: Theme.of(context).colorScheme.onSurface),
+                  Icon(
+                    Icons.link,
+                    size: 20,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
                   const SizedBox(width: 12),
                   Text(context.l10n.topicDetail_shareLink),
                 ],
@@ -867,7 +947,11 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.image_outlined, size: 20, color: Theme.of(context).colorScheme.onSurface),
+                  Icon(
+                    Icons.image_outlined,
+                    size: 20,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
                   const SizedBox(width: 12),
                   Text(context.l10n.topicDetail_generateShareImage),
                 ],
@@ -878,7 +962,11 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.download_outlined, size: 20, color: Theme.of(context).colorScheme.onSurface),
+                Icon(
+                  Icons.download_outlined,
+                  size: 20,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
                 const SizedBox(width: 12),
                 Text(context.l10n.topicDetail_exportArticle),
               ],
@@ -889,7 +977,11 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.language, size: 20, color: Theme.of(context).colorScheme.onSurface),
+                Icon(
+                  Icons.language,
+                  size: 20,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
                 const SizedBox(width: 12),
                 Text(context.l10n.topicDetail_openInBrowser),
               ],
@@ -900,8 +992,11 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
             value: 'filter',
             child: Builder(
               builder: (context) {
-                final hasFilter = notifier.isSummaryMode || notifier.isAuthorOnlyMode ||
-                    notifier.isTopLevelMode || _isNestedView;
+                final hasFilter =
+                    notifier.isSummaryMode ||
+                    notifier.isAuthorOnlyMode ||
+                    notifier.isTopLevelMode ||
+                    _isNestedView;
                 return Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -916,7 +1011,9 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
                     Text(
                       context.l10n.topicDetail_filter,
                       style: hasFilter
-                          ? TextStyle(color: Theme.of(context).colorScheme.primary)
+                          ? TextStyle(
+                              color: Theme.of(context).colorScheme.primary,
+                            )
                           : null,
                     ),
                   ],
@@ -971,7 +1068,6 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
         );
       }
     });
-
 
     final params = _params;
     final detailAsync = ref.watch(topicDetailProvider(params));
@@ -1214,6 +1310,11 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      shortcutSurface: const ShortcutSurfaceConfig(
+        id: ShortcutSurfaceIds.topicAiAssistant,
+        triggerAction: ShortcutAction.toggleAiPanel,
+        repeatBehavior: ShortcutSurfaceRepeatBehavior.toggle,
+      ),
       builder: (sheetContext) => AiChatPage(
         topicId: widget.topicId,
         detail: detail,
@@ -1456,8 +1557,9 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
     // 初始定位
     if (!_controller.hasInitialScrolled && posts.isNotEmpty) {
       _controller.markInitialScrolled(posts.first.postNumber);
-      if (_controller.currentPostNumber == null ||
-          _controller.currentPostNumber == 0) {
+      final initialTargetPostNumber =
+          _controller.jumpTargetPostNumber ?? _resolvedViewportPostNumber;
+      if (initialTargetPostNumber == null || initialTargetPostNumber == 0) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted && !_controller.isPositioned) {
             _controller.markPositioned();
@@ -1491,7 +1593,8 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
           onRefreshPost: _handleRefreshPost,
           onJumpToPost: _scrollToPost,
           onVoteChanged: _handleVoteChanged,
-          onNotificationLevelChanged: (level) => _handleNotificationLevelChanged(notifier, level),
+          onNotificationLevelChanged: (level) =>
+              _handleNotificationLevelChanged(notifier, level),
           onSolutionChanged: _handleSolutionChanged,
           onScrollNotification: _controller.handleScrollNotification,
           onVisiblePostsChanged: _updateVisiblePosts,
@@ -1508,53 +1611,65 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
           topicChannelProvider(widget.topicId).select((s) => s.typingUsers),
         );
         return ValueListenableBuilder<int?>(
-          valueListenable: _controller.highlightNotifier,
-          builder: (context, highlightPostNumber, _) {
-            return TopicPostList(
-              detail: detail,
-              scrollController: _controller.scrollController,
-              centerKey: _centerKey,
-              headerKey: _headerKey,
-              highlightPostNumber: highlightPostNumber,
-              highlightBoostUsername: widget.highlightBoostUsername,
-              typingUsers: typingUsers,
-              isLoggedIn: isLoggedIn,
-              hasMoreBefore: notifier.hasMoreBefore,
-              hasMoreAfter: notifier.hasMoreAfter,
-              isLoadingPrevious: notifier.isLoadingPrevious,
-              isLoadingMore: notifier.isLoadingMore,
-              isLoadMoreFailed: notifier.isLoadMoreFailed,
-              isLoadPreviousFailed: notifier.isLoadPreviousFailed,
-              onRetryLoadMore: () => notifier.retryLoadMore(),
-              onRetryLoadPrevious: () => notifier.retryLoadPrevious(),
-              centerPostIndex: centerPostIndex,
-              dividerPostIndex: dividerPostIndex,
-              onFirstVisiblePostChanged: _updateStreamIndexForPostNumber,
-              onVisiblePostsChanged: _updateVisiblePosts,
-              onScrollIndexMappingChanged: _controller.updateScrollIndexMapping,
-              onJumpToPost: _scrollToPost,
-              onReply: _handleReply,
-              onEdit: _handleEdit,
-              onShareAsImage: _sharePostAsImage,
-              onRefreshPost: _handleRefreshPost,
-              onVoteChanged: _handleVoteChanged,
-              onNotificationLevelChanged: (level) =>
-                  _handleNotificationLevelChanged(notifier, level),
-              onSolutionChanged: _handleSolutionChanged,
-              onQuoteSelection: isLoggedIn ? _handleQuoteSelection : null,
-              onQuoteImage: isLoggedIn ? _handleImageQuote : null,
-              onScrollNotification: _controller.handleScrollNotification,
-              onPointerScroll: _controller.handlePointerScroll,
-              onFillGapBefore: (postId) => notifier.fillGapBefore(postId),
-              onFillGapAfter: (postId) => notifier.fillGapAfter(postId),
-              onExpandHiddenPost: (postId) => notifier.expandHiddenPost(postId),
-              useReplyDialog: notifier.isTopLevelMode,
-              onShowPostDetail: (post) => showPostRepliesSheet(
-                context: context,
-                post: post,
-                topicId: widget.topicId,
-                onJumpToPost: _scrollToPost,
-              ),
+          valueListenable: _controller.selectedPostNumberNotifier,
+          builder: (context, selectedPostNumber, _) {
+            return ValueListenableBuilder<int?>(
+              valueListenable: _controller.highlightNotifier,
+              builder: (context, highlightPostNumber, _) {
+                return TopicPostList(
+                  detail: detail,
+                  scrollController: _controller.scrollController,
+                  centerKey: _centerKey,
+                  headerKey: _headerKey,
+                  selectedPostNumber: selectedPostNumber,
+                  highlightPostNumber: highlightPostNumber,
+                  highlightBoostUsername: widget.highlightBoostUsername,
+                  typingUsers: typingUsers,
+                  isLoggedIn: isLoggedIn,
+                  hasMoreBefore: notifier.hasMoreBefore,
+                  hasMoreAfter: notifier.hasMoreAfter,
+                  isLoadingPrevious: notifier.isLoadingPrevious,
+                  isLoadingMore: notifier.isLoadingMore,
+                  isLoadMoreFailed: notifier.isLoadMoreFailed,
+                  isLoadPreviousFailed: notifier.isLoadPreviousFailed,
+                  onRetryLoadMore: () => notifier.retryLoadMore(),
+                  onRetryLoadPrevious: () => notifier.retryLoadPrevious(),
+                  centerPostIndex: centerPostIndex,
+                  dividerPostIndex: dividerPostIndex,
+                  onFirstVisiblePostChanged: _updateStreamIndexForPostNumber,
+                  onVisiblePostsChanged: _updateVisiblePosts,
+                  onScrollIndexMappingChanged:
+                      _controller.updateScrollIndexMapping,
+                  onScrollIndexToPostNumberChanged:
+                      _controller.updateScrollIndexToPostNumber,
+                  onPostSegmentRangesChanged:
+                      _controller.updatePostSegmentRanges,
+                  onJumpToPost: _scrollToPost,
+                  onReply: _handleReply,
+                  onEdit: _handleEdit,
+                  onShareAsImage: _sharePostAsImage,
+                  onRefreshPost: _handleRefreshPost,
+                  onVoteChanged: _handleVoteChanged,
+                  onNotificationLevelChanged: (level) =>
+                      _handleNotificationLevelChanged(notifier, level),
+                  onSolutionChanged: _handleSolutionChanged,
+                  onQuoteSelection: isLoggedIn ? _handleQuoteSelection : null,
+                  onQuoteImage: isLoggedIn ? _handleImageQuote : null,
+                  onScrollNotification: _controller.handleScrollNotification,
+                  onPointerScroll: _controller.handlePointerScroll,
+                  onFillGapBefore: (postId) => notifier.fillGapBefore(postId),
+                  onFillGapAfter: (postId) => notifier.fillGapAfter(postId),
+                  onExpandHiddenPost: (postId) =>
+                      notifier.expandHiddenPost(postId),
+                  useReplyDialog: notifier.isTopLevelMode,
+                  onShowPostDetail: (post) => showPostRepliesSheet(
+                    context: context,
+                    post: post,
+                    topicId: widget.topicId,
+                    onJumpToPost: _scrollToPost,
+                  ),
+                );
+              },
             );
           },
         );

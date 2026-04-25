@@ -5,6 +5,18 @@ import '../providers/discourse_providers.dart';
 import '../pages/topic_detail_page/topic_detail_page.dart';
 import '../pages/user_profile_page.dart';
 import '../pages/badge_page.dart';
+import '../services/local_notification_service.dart';
+import '../widgets/notification/notification_quick_panel.dart';
+
+NavigatorState? _rootNavigator(BuildContext context) {
+  return navigatorKey.currentState ??
+      Navigator.of(context, rootNavigator: true);
+}
+
+void _pushOnRootNavigator(BuildContext context, Widget page) {
+  NotificationQuickPanel.dismiss();
+  _rootNavigator(context)?.push(MaterialPageRoute(builder: (_) => page));
+}
 
 /// 处理通知点击：标记已读 + 按类型跳转
 /// 快捷面板和历史列表页面共用
@@ -19,9 +31,12 @@ void handleNotificationTap(
     ref.read(recentNotificationsProvider.notifier).markAsRead(notification.id);
 
     // 异步发送标记已读请求
-    ref.read(discourseServiceProvider).markNotificationRead(notification.id).catchError((e) {
-      debugPrint('标记通知已读失败: $e');
-    });
+    ref
+        .read(discourseServiceProvider)
+        .markNotificationRead(notification.id)
+        .catchError((e) {
+          debugPrint('标记通知已读失败: $e');
+        });
   }
 
   // 根据通知类型决定跳转逻辑
@@ -29,11 +44,9 @@ void handleNotificationTap(
     case NotificationType.inviteeAccepted:
     case NotificationType.following:
       if (notification.username != null) {
-        Navigator.push(
+        _pushOnRootNavigator(
           context,
-          MaterialPageRoute(
-            builder: (_) => UserProfilePage(username: notification.username!),
-          ),
+          UserProfilePage(username: notification.username!),
         );
       }
       break;
@@ -41,14 +54,12 @@ void handleNotificationTap(
     case NotificationType.grantedBadge:
       if (notification.data.badgeId != null) {
         final currentUser = ref.read(currentUserProvider).value;
-        Navigator.push(
+        _pushOnRootNavigator(
           context,
-          MaterialPageRoute(
-            builder: (_) => BadgePage(
-              badgeId: notification.data.badgeId!,
-              badgeSlug: notification.data.badgeSlug,
-              username: currentUser?.username,
-            ),
+          BadgePage(
+            badgeId: notification.data.badgeId!,
+            badgeSlug: notification.data.badgeSlug,
+            username: currentUser?.username,
           ),
         );
       }
@@ -59,14 +70,12 @@ void handleNotificationTap(
 
     case NotificationType.boost:
       if (notification.topicId != null) {
-        Navigator.push(
+        _pushOnRootNavigator(
           context,
-          MaterialPageRoute(
-            builder: (_) => TopicDetailPage(
-              topicId: notification.topicId!,
-              scrollToPostNumber: notification.postNumber,
-              highlightBoostUsername: notification.data.displayUsername,
-            ),
+          TopicDetailPage(
+            topicId: notification.topicId!,
+            scrollToPostNumber: notification.postNumber,
+            highlightBoostUsername: notification.data.displayUsername,
           ),
         );
       }
@@ -74,13 +83,11 @@ void handleNotificationTap(
 
     default:
       if (notification.topicId != null) {
-        Navigator.push(
+        _pushOnRootNavigator(
           context,
-          MaterialPageRoute(
-            builder: (_) => TopicDetailPage(
-              topicId: notification.topicId!,
-              scrollToPostNumber: notification.postNumber,
-            ),
+          TopicDetailPage(
+            topicId: notification.topicId!,
+            scrollToPostNumber: notification.postNumber,
           ),
         );
       }

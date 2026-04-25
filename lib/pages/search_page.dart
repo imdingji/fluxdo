@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../models/shortcut_binding.dart';
 import '../providers/discourse_providers.dart';
 import '../models/search_filter.dart';
 import '../models/search_result.dart';
@@ -10,6 +11,7 @@ import '../widgets/search/search_filter_panel.dart';
 import '../widgets/search/search_post_card.dart';
 import '../widgets/search/search_preview_dialog.dart';
 import '../providers/preferences_provider.dart';
+import '../providers/shortcut_provider.dart';
 import 'topic_detail_page/topic_detail_page.dart';
 import 'package:dio/dio.dart';
 import '../services/app_error_handler.dart';
@@ -32,12 +34,22 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   final _searchController = TextEditingController();
   final _focusNode = FocusNode();
   final _scrollController = ScrollController();
+  late final ShortcutSurfaceBinding _shortcutSurfaceBinding =
+      ShortcutSurfaceBinding(
+        ref: ref,
+        id: ShortcutSurfaceIds.search,
+        triggerAction: ShortcutAction.openSearch,
+        kind: ShortcutSurfaceKind.route,
+        repeatBehavior: ShortcutSurfaceRepeatBehavior.reveal,
+        passthroughActions: ShortcutSurfaceActionSets.globalRoutePassthrough,
+      );
+  ModalRoute<dynamic>? _route;
 
   String _currentQuery = '';
   int _currentPage = 1;
   bool _isLoadingMore = false;
   List<SearchPost> _standardPosts = []; // 标准搜索结果（原始）
-  List<SearchPost> _allPosts = [];      // 最终展示列表（融合后）
+  List<SearchPost> _allPosts = []; // 最终展示列表（融合后）
   List<SearchUser> _allUsers = [];
   bool _hasMorePosts = false;
   bool _hasMoreUsers = false;
@@ -55,7 +67,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
   // AI 语义搜索
   bool _siteAiSearchAvailable = false;
-  List<SearchPost> _aiPosts = [];  // AI 搜索结果（原始）
+  List<SearchPost> _aiPosts = []; // AI 搜索结果（原始）
   bool _isSearchingAi = false;
 
   @override
@@ -78,6 +90,26 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       });
     }
     _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route == null || identical(route, _route)) return;
+    _route = route;
+    _shortcutSurfaceBinding.registerDeferred(
+      context,
+      onClose: () => Navigator.of(context).maybePop(),
+      onFocus: _revealSelf,
+    );
+  }
+
+  void _revealSelf() {
+    final route = _route;
+    final navigator = route?.navigator;
+    if (route == null || navigator == null || route.isCurrent) return;
+    navigator.popUntil((candidate) => identical(candidate, route));
   }
 
   /// 加载最近搜索记录
@@ -128,6 +160,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
   @override
   void dispose() {
+    _shortcutSurfaceBinding.disposeDeferred();
     _searchController.dispose();
     _focusNode.dispose();
     _scrollController.dispose();
@@ -238,7 +271,10 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
   /// RRF（Reciprocal Rank Fusion）算法，与 Discourse 前端一致
   /// 将标准搜索结果和 AI 搜索结果按倒数排名融合
-  List<SearchPost> _mergeWithRRF(List<SearchPost> standard, List<SearchPost> ai) {
+  List<SearchPost> _mergeWithRRF(
+    List<SearchPost> standard,
+    List<SearchPost> ai,
+  ) {
     if (ai.isEmpty) return standard;
     if (standard.isEmpty) return ai;
 
@@ -277,7 +313,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   /// 根据当前 AI 开关状态重新构建展示列表
   void _rebuildDisplayPosts() {
     final settings = ref.read(searchSettingsProvider);
-    final showAi = _siteAiSearchAvailable &&
+    final showAi =
+        _siteAiSearchAvailable &&
         settings.aiSearchEnabled &&
         settings.sortOrder == SearchSortOrder.relevance &&
         _aiPosts.isNotEmpty;
@@ -292,7 +329,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   bool _shouldTriggerAiSearch() {
     final sortOrder = ref.read(searchSettingsProvider).sortOrder;
     final aiEnabled = ref.read(searchSettingsProvider).aiSearchEnabled;
-    return _siteAiSearchAvailable && aiEnabled && sortOrder == SearchSortOrder.relevance;
+    return _siteAiSearchAvailable &&
+        aiEnabled &&
+        sortOrder == SearchSortOrder.relevance;
   }
 
   void _triggerAiSearch(String query) async {
@@ -303,7 +342,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       if (!mounted) return;
 
       // 标记为 AI 生成
-      _aiPosts = aiResult.posts.map((p) => p.copyWith(isAiGenerated: true)).toList();
+      _aiPosts = aiResult.posts
+          .map((p) => p.copyWith(isAiGenerated: true))
+          .toList();
 
       setState(() {
         _isSearchingAi = false;
@@ -747,7 +788,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                   Icon(
                     Icons.auto_awesome,
                     size: 16,
-                    color: ref.watch(searchSettingsProvider).sortOrder == SearchSortOrder.relevance
+                    color:
+                        ref.watch(searchSettingsProvider).sortOrder ==
+                            SearchSortOrder.relevance
                         ? theme.colorScheme.tertiary
                         : theme.colorScheme.outline,
                   ),
@@ -756,16 +799,26 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                     child: FittedBox(
                       fit: BoxFit.scaleDown,
                       child: Switch(
-                        value: ref.watch(searchSettingsProvider).aiSearchEnabled &&
-                            ref.watch(searchSettingsProvider).sortOrder == SearchSortOrder.relevance,
-                        onChanged: ref.watch(searchSettingsProvider).sortOrder == SearchSortOrder.relevance
+                        value:
+                            ref.watch(searchSettingsProvider).aiSearchEnabled &&
+                            ref.watch(searchSettingsProvider).sortOrder ==
+                                SearchSortOrder.relevance,
+                        onChanged:
+                            ref.watch(searchSettingsProvider).sortOrder ==
+                                SearchSortOrder.relevance
                             ? (value) {
-                                ref.read(searchSettingsProvider.notifier).setAiSearchEnabled(value);
+                                ref
+                                    .read(searchSettingsProvider.notifier)
+                                    .setAiSearchEnabled(value);
                                 setState(() {
                                   _rebuildDisplayPosts();
                                   // 开启时若还没有 AI 结果，触发搜索
-                                  if (value && _aiPosts.isEmpty && _currentQuery.isNotEmpty) {
-                                    final cleanQuery = _stripOrderFromQuery(_currentQuery);
+                                  if (value &&
+                                      _aiPosts.isEmpty &&
+                                      _currentQuery.isNotEmpty) {
+                                    final cleanQuery = _stripOrderFromQuery(
+                                      _currentQuery,
+                                    );
                                     _triggerAiSearch(cleanQuery);
                                   }
                                 });
@@ -777,7 +830,10 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                   const SizedBox(width: 8),
                 ],
                 Text(
-                  context.l10n.search_resultCount(_allPosts.length, _hasMorePosts ? '+' : ''),
+                  context.l10n.search_resultCount(
+                    _allPosts.length,
+                    _hasMorePosts ? '+' : '',
+                  ),
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.outline,
                   ),
@@ -797,7 +853,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
               // 帖子结果（标准 + AI 混合）
               if (index < _allPosts.length) {
                 final searchPost = _allPosts[index];
-                final enableLongPress = ref.watch(preferencesProvider).longPressPreview;
+                final enableLongPress = ref
+                    .watch(preferencesProvider)
+                    .longPressPreview;
                 return SearchPostCard(
                   post: searchPost,
                   onTap: () {
@@ -816,23 +874,23 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                   },
                   onLongPress: enableLongPress
                       ? () => SearchPreviewDialog.show(
-                            context,
-                            post: searchPost,
-                            onOpen: () {
-                              final topic = searchPost.topic;
-                              if (topic != null) {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => TopicDetailPage(
-                                      topicId: topic.id,
-                                      scrollToPostNumber: searchPost.postNumber,
-                                    ),
+                          context,
+                          post: searchPost,
+                          onOpen: () {
+                            final topic = searchPost.topic;
+                            if (topic != null) {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => TopicDetailPage(
+                                    topicId: topic.id,
+                                    scrollToPostNumber: searchPost.postNumber,
                                   ),
-                                );
-                              }
-                            },
-                          )
+                                ),
+                              );
+                            }
+                          },
+                        )
                       : null,
                 );
               }
@@ -883,11 +941,18 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.refresh, size: 16, color: Theme.of(context).colorScheme.primary),
+                          Icon(
+                            Icons.refresh,
+                            size: 16,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
                           const SizedBox(width: 6),
                           Text(
                             context.l10n.common_loadFailedTapRetry,
-                            style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.primary),
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
                           ),
                         ],
                       ),

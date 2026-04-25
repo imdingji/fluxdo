@@ -3,6 +3,7 @@ import '../../l10n/s.dart';
 import '../../models/topic.dart';
 import '../common/relative_time_text.dart';
 import '../common/smart_avatar.dart';
+import 'post_item/widgets/post_segment_frame.dart';
 
 /// 帖子类型常量
 class PostTypes {
@@ -80,11 +81,13 @@ Map<String, String> _getActionCodeDescriptions() {
 /// 用于显示置顶、关闭、邀请等系统操作
 class SmallActionItem extends StatelessWidget {
   final Post post;
+  final bool selected;
   final VoidCallback? onTap;
 
   const SmallActionItem({
     super.key,
     required this.post,
+    this.selected = false,
     this.onTap,
   });
 
@@ -97,17 +100,19 @@ class SmallActionItem extends StatelessWidget {
     final code = post.actionCode ?? '';
     final who = post.actionCodeWho;
     String base = _getActionCodeDescriptions()[code] ?? code;
-    
+
     // 如果有操作者信息，且描述需要包含操作者
     if (who != null && who.isNotEmpty) {
-      if (code == 'invited_user' || code == 'invited_group' ||
-          code == 'removed_user' || code == 'removed_group') {
+      if (code == 'invited_user' ||
+          code == 'invited_group' ||
+          code == 'removed_user' ||
+          code == 'removed_group') {
         base = '$base @$who';
       } else if (code == 'user_left') {
         base = '@$who $base';
       }
     }
-    
+
     return base;
   }
 
@@ -116,64 +121,83 @@ class SmallActionItem extends StatelessWidget {
     final theme = Theme.of(context);
     final avatarUrl = post.getAvatarUrl(size: 60);
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
-            width: 0.5,
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(
+                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+                width: 0.5,
+              ),
+            ),
+          ),
+          child: Row(
+            children: [
+              // 图标
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primaryContainer.withValues(
+                    alpha: 0.3,
+                  ),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(_icon, size: 16, color: theme.colorScheme.primary),
+              ),
+              const SizedBox(width: 12),
+              // 描述和时间
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _description,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    RelativeTimeText(
+                      dateTime: post.createdAt,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant.withValues(
+                          alpha: 0.6,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // 头像
+              SmartAvatar(
+                imageUrl: avatarUrl.isNotEmpty ? avatarUrl : null,
+                radius: 14,
+                fallbackText: post.username,
+                backgroundColor: theme.colorScheme.surfaceContainerHighest,
+              ),
+            ],
           ),
         ),
-      ),
-      child: Row(
-        children: [
-          // 图标
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              _icon,
-              size: 16,
-              color: theme.colorScheme.primary,
-            ),
-          ),
-          const SizedBox(width: 12),
-          // 描述和时间
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  _description,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+        if (selected)
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: buildPostSelectionIndicatorColor(theme),
                 ),
-                const SizedBox(height: 2),
-                RelativeTimeText(
-                  dateTime: post.createdAt,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
-                  ),
-                ),
-              ],
+                child: const SizedBox(width: 3),
+              ),
             ),
           ),
-          // 头像
-          SmartAvatar(
-            imageUrl: avatarUrl.isNotEmpty ? avatarUrl : null,
-            radius: 14,
-            fallbackText: post.username,
-            backgroundColor: theme.colorScheme.surfaceContainerHighest,
-          ),
-        ],
-      ),
+      ],
     );
   }
 }

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/app_localizations.dart';
 import '../l10n/s.dart';
+import '../models/shortcut_binding.dart';
+import '../providers/shortcut_provider.dart';
 import '../settings/search/settings_search_index.dart';
 import '../utils/platform_utils.dart';
 import 'about_page.dart';
@@ -13,20 +16,51 @@ import 'preferences_page.dart';
 import 'reading_settings_page.dart';
 import 'shortcut_settings_page.dart';
 
-class SettingsPage extends StatefulWidget {
+class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
 
   @override
-  State<SettingsPage> createState() => _SettingsPageState();
+  ConsumerState<SettingsPage> createState() => _SettingsPageState();
 }
 
-class _SettingsPageState extends State<SettingsPage> {
+class _SettingsPageState extends ConsumerState<SettingsPage> {
   final _searchController = TextEditingController();
   final _focusNode = FocusNode();
+  late final ShortcutSurfaceBinding _shortcutSurfaceBinding =
+      ShortcutSurfaceBinding(
+        ref: ref,
+        id: ShortcutSurfaceIds.settings,
+        triggerAction: ShortcutAction.openSettings,
+        kind: ShortcutSurfaceKind.route,
+        repeatBehavior: ShortcutSurfaceRepeatBehavior.reveal,
+        passthroughActions: ShortcutSurfaceActionSets.globalRoutePassthrough,
+      );
+  ModalRoute<dynamic>? _route;
   String _query = '';
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route == null || identical(route, _route)) return;
+    _route = route;
+    _shortcutSurfaceBinding.registerDeferred(
+      context,
+      onClose: () => Navigator.of(context).maybePop(),
+      onFocus: _revealSelf,
+    );
+  }
+
+  void _revealSelf() {
+    final route = _route;
+    final navigator = route?.navigator;
+    if (route == null || navigator == null || route.isCurrent) return;
+    navigator.popUntil((candidate) => identical(candidate, route));
+  }
+
+  @override
   void dispose() {
+    _shortcutSurfaceBinding.disposeDeferred();
     _searchController.dispose();
     _focusNode.dispose();
     super.dispose();
@@ -39,9 +73,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final isSearching = _query.isNotEmpty;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(l10n.settings_title),
-      ),
+      appBar: AppBar(title: Text(l10n.settings_title)),
       body: Column(
         children: [
           // 搜索栏
@@ -65,14 +97,17 @@ class _SettingsPageState extends State<SettingsPage> {
                       )
                     : null,
                 filled: true,
-                fillColor: theme.colorScheme.surfaceContainerHighest
-                    .withValues(alpha: 0.4),
+                fillColor: theme.colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.4,
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
                 ),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
                 isDense: true,
               ),
               style: theme.textTheme.bodyMedium,
@@ -93,9 +128,7 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget _buildSearchResults(ThemeData theme) {
     final allResults = buildSearchIndex(context);
     final q = _query.toLowerCase();
-    final filtered = allResults
-        .where((r) => r.model.matchesQuery(q))
-        .toList();
+    final filtered = allResults.where((r) => r.model.matchesQuery(q)).toList();
 
     if (filtered.isEmpty) {
       return Center(
@@ -105,8 +138,7 @@ class _SettingsPageState extends State<SettingsPage> {
             Icon(
               Icons.search_off_rounded,
               size: 48,
-              color:
-                  theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
             ),
             const SizedBox(height: 12),
             Text(
@@ -123,7 +155,7 @@ class _SettingsPageState extends State<SettingsPage> {
     return ListView.separated(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       itemCount: filtered.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 2),
+      separatorBuilder: (_, _) => const SizedBox(height: 2),
       itemBuilder: (context, index) {
         final result = filtered[index];
         return Card(
@@ -138,8 +170,11 @@ class _SettingsPageState extends State<SettingsPage> {
                 color: result.categoryColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(result.categoryIcon,
-                  color: result.categoryColor, size: 18),
+              child: Icon(
+                result.categoryIcon,
+                color: result.categoryColor,
+                size: 18,
+              ),
             ),
             title: Text(
               result.model.title,
@@ -189,8 +224,10 @@ class _SettingsPageState extends State<SettingsPage> {
                 icon: Icons.color_lens_rounded,
                 iconColor: Colors.teal,
                 title: l10n.settings_appearance,
-                onTap: () => Navigator.push(context,
-                    MaterialPageRoute(builder: (_) => const AppearancePage())),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AppearancePage()),
+                ),
               ),
               _buildDivider(theme),
               _buildOptionTile(
@@ -198,9 +235,11 @@ class _SettingsPageState extends State<SettingsPage> {
                 iconColor: Colors.deepOrange,
                 title: l10n.settings_reading,
                 onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const ReadingSettingsPage())),
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const ReadingSettingsPage(),
+                  ),
+                ),
               ),
               _buildDivider(theme),
               _buildOptionTile(
@@ -208,9 +247,11 @@ class _SettingsPageState extends State<SettingsPage> {
                 iconColor: Colors.blueGrey,
                 title: l10n.settings_network,
                 onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const NetworkSettingsPage())),
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const NetworkSettingsPage(),
+                  ),
+                ),
               ),
               _buildDivider(theme),
               _buildOptionTile(
@@ -218,9 +259,9 @@ class _SettingsPageState extends State<SettingsPage> {
                 iconColor: Colors.deepPurple,
                 title: l10n.settings_preferences,
                 onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const PreferencesPage())),
+                  context,
+                  MaterialPageRoute(builder: (_) => const PreferencesPage()),
+                ),
               ),
               _buildDivider(theme),
               _buildOptionTile(
@@ -228,9 +269,11 @@ class _SettingsPageState extends State<SettingsPage> {
                 iconColor: Colors.amber,
                 title: l10n.settings_bottomNav,
                 onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const BottomNavSettingsPage())),
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const BottomNavSettingsPage(),
+                  ),
+                ),
               ),
               _buildDivider(theme),
               _buildOptionTile(
@@ -238,9 +281,9 @@ class _SettingsPageState extends State<SettingsPage> {
                 iconColor: Colors.brown,
                 title: l10n.settings_dataManagement,
                 onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const DataManagementPage())),
+                  context,
+                  MaterialPageRoute(builder: (_) => const DataManagementPage()),
+                ),
               ),
               // 快捷键（仅桌面端）
               if (PlatformUtils.isDesktop) ...[
@@ -250,9 +293,11 @@ class _SettingsPageState extends State<SettingsPage> {
                   iconColor: Colors.cyan,
                   title: l10n.settings_shortcuts,
                   onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (_) => const ShortcutSettingsPage())),
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const ShortcutSettingsPage(),
+                    ),
+                  ),
                 ),
               ],
               _buildDivider(theme),
@@ -260,8 +305,10 @@ class _SettingsPageState extends State<SettingsPage> {
                 icon: Icons.info_rounded,
                 iconColor: Colors.indigo,
                 title: l10n.settings_about,
-                onTap: () => Navigator.push(context,
-                    MaterialPageRoute(builder: (_) => const AboutPage())),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AboutPage()),
+                ),
               ),
             ],
           ),

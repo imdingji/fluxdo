@@ -30,6 +30,7 @@ class TopicPostList extends StatefulWidget {
   final AutoScrollController scrollController;
   final GlobalKey centerKey;
   final GlobalKey headerKey;
+  final int? selectedPostNumber;
   final int? highlightPostNumber;
   final List<TypingUser> typingUsers;
   final bool isLoggedIn;
@@ -46,6 +47,9 @@ class TopicPostList extends StatefulWidget {
   final void Function(int postNumber) onFirstVisiblePostChanged;
   final void Function(Set<int> visiblePostNumbers)? onVisiblePostsChanged;
   final void Function(Map<int, int>)? onScrollIndexMappingChanged;
+  final void Function(Map<int, int>)? onScrollIndexToPostNumberChanged;
+  final void Function(Map<int, ({int firstScrollIndex, int lastScrollIndex})>)?
+  onPostSegmentRangesChanged;
   final void Function(int postNumber) onJumpToPost;
   final void Function(Post? replyToPost) onReply;
   final void Function(Post post) onEdit;
@@ -83,6 +87,7 @@ class TopicPostList extends StatefulWidget {
     required this.scrollController,
     required this.centerKey,
     required this.headerKey,
+    required this.selectedPostNumber,
     required this.highlightPostNumber,
     this.highlightBoostUsername,
     required this.typingUsers,
@@ -100,6 +105,8 @@ class TopicPostList extends StatefulWidget {
     required this.onFirstVisiblePostChanged,
     this.onVisiblePostsChanged,
     this.onScrollIndexMappingChanged,
+    this.onScrollIndexToPostNumberChanged,
+    this.onPostSegmentRangesChanged,
     required this.onJumpToPost,
     required this.onReply,
     required this.onEdit,
@@ -152,6 +159,7 @@ class _TopicPostListState extends State<TopicPostList> {
   AutoScrollController get scrollController => widget.scrollController;
   GlobalKey get centerKey => widget.centerKey;
   GlobalKey get headerKey => widget.headerKey;
+  int? get selectedPostNumber => widget.selectedPostNumber;
   int? get highlightPostNumber => widget.highlightPostNumber;
   List<TypingUser> get typingUsers => widget.typingUsers;
   bool get isLoggedIn => widget.isLoggedIn;
@@ -302,6 +310,12 @@ class _TopicPostListState extends State<TopicPostList> {
           _updateFirstVisiblePost();
         }
       });
+    } else if (notification is ScrollEndNotification) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _updateFirstVisiblePost();
+        }
+      });
     }
 
     return result;
@@ -342,10 +356,13 @@ class _TopicPostListState extends State<TopicPostList> {
     final postIndexToScrollIndex = <int, int>{};
     final scrollIndexToPostNumber = <int, int>{};
     final postNumberToIndex = <int, int>{};
+    final postSegmentRanges =
+        <int, ({int firstScrollIndex, int lastScrollIndex})>{};
     final gaps = detail.postStream.gaps;
 
     for (int postIndex = 0; postIndex < posts.length; postIndex++) {
       final post = posts[postIndex];
+      final firstScrollIndex = segments.length;
 
       // 检查此帖子前面是否有 gap
       if (gaps != null && gaps.before.containsKey(post.id)) {
@@ -427,6 +444,11 @@ class _TopicPostListState extends State<TopicPostList> {
           );
         }
       }
+
+      postSegmentRanges[post.postNumber] = (
+        firstScrollIndex: firstScrollIndex,
+        lastScrollIndex: segments.length - 1,
+      );
     }
 
     _renderSegments = segments;
@@ -434,6 +456,8 @@ class _TopicPostListState extends State<TopicPostList> {
     _scrollIndexToPostNumber = scrollIndexToPostNumber;
     _postNumberToIndex = postNumberToIndex;
     widget.onScrollIndexMappingChanged?.call(postIndexToScrollIndex);
+    widget.onScrollIndexToPostNumberChanged?.call(scrollIndexToPostNumber);
+    widget.onPostSegmentRangesChanged?.call(postSegmentRanges);
   }
 
   void _rememberLongSelectionPost(Post post) {
@@ -668,10 +692,12 @@ class _TopicPostListState extends State<TopicPostList> {
     final bottomDateSeparatorLabel = showBottomSeparator
         ? TimeUtils.formatSmartDate(posts_[nextPostIndex].createdAt)
         : null;
+    final isSelectedPost = selectedPostNumber == post.postNumber;
     final isTargetPost = highlightPostNumber == post.postNumber;
     final boostUsername = isTargetPost ? widget.highlightBoostUsername : null;
     // 能匹配到具体 boost 时不高亮帖子，匹配不到时回退到高亮帖子
-    final canLocateBoost = boostUsername != null &&
+    final canLocateBoost =
+        boostUsername != null &&
         (post.boosts ?? []).any((b) => b.user.username == boostUsername);
     final highlight = isTargetPost && !canLocateBoost;
     final Widget child;
@@ -681,6 +707,7 @@ class _TopicPostListState extends State<TopicPostList> {
         child = PostItem(
           post: post,
           topicId: detail.id,
+          selected: isSelectedPost,
           highlight: highlight,
           highlightBoostUsername: boostUsername,
           isTopicOwner: detail.createdBy?.username == post.username,
@@ -712,6 +739,7 @@ class _TopicPostListState extends State<TopicPostList> {
         child = LongPostHeaderSegment(
           post: post,
           topicId: detail.id,
+          selected: isSelectedPost,
           highlight: highlight,
           isTopicOwner: detail.createdBy?.username == post.username,
           dateSeparatorLabel: dateSeparatorLabel,
@@ -723,6 +751,7 @@ class _TopicPostListState extends State<TopicPostList> {
         child = LongPostChunkSegment(
           post: post,
           topicId: detail.id,
+          selected: isSelectedPost,
           highlight: highlight,
           chunk: segment.chunkData!,
           renderData: segment.renderData!,
@@ -733,6 +762,7 @@ class _TopicPostListState extends State<TopicPostList> {
         child = LongPostFooterSegment(
           post: post,
           topicId: detail.id,
+          selected: isSelectedPost,
           highlight: highlight,
           highlightBoostUsername: boostUsername,
           topicHasAcceptedAnswer: detail.hasAcceptedAnswer,

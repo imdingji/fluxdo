@@ -4831,6 +4831,30 @@ class AppLocalizationsEn extends AppLocalizations {
       'Customize in Settings > Keyboard Shortcuts';
 
   @override
+  String get shortcuts_deletePost => 'Delete Current Post';
+
+  @override
+  String get shortcuts_editPost => 'Edit Current Post';
+
+  @override
+  String get shortcuts_flagPost => 'Flag Current Post';
+
+  @override
+  String get shortcuts_goToUnreadPost => 'Go to First Unread Post';
+
+  @override
+  String get shortcuts_jumpToPost => 'Jump to Post';
+
+  @override
+  String get shortcuts_bookmarkPost => 'Bookmark Current Post';
+
+  @override
+  String get shortcuts_bookmarkTopic => 'Bookmark Topic';
+
+  @override
+  String get shortcuts_likePost => 'Like Current Post';
+
+  @override
   String get shortcuts_navigateBack => 'Go Back';
 
   @override
@@ -4855,6 +4879,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get shortcuts_openSettings => 'Open Settings';
 
   @override
+  String get shortcuts_post => 'Posts';
+
+  @override
   String get shortcuts_previousItem => 'Previous Item';
 
   @override
@@ -4867,10 +4894,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String get shortcuts_refresh => 'Refresh';
 
   @override
+  String get shortcuts_replyPost => 'Reply to Current Post';
+
+  @override
+  String get shortcuts_replyTopic => 'Reply to Topic';
+
+  @override
   String get shortcuts_resetAll => 'Reset All to Default';
 
   @override
   String get shortcuts_resetOne => 'Reset to Default';
+
+  @override
+  String get shortcuts_quotePost => 'Quote Current Post';
+
+  @override
+  String get shortcuts_sharePost => 'Share Current Post';
+
+  @override
+  String get shortcuts_shareTopic => 'Share Topic';
 
   @override
   String get shortcuts_showHelp => 'Shortcut Help';
@@ -4889,6 +4931,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get shortcuts_toggleNotifications => 'Notifications';
+
+  @override
+  String get shortcuts_topic => 'Topic';
 
   @override
   String get download_alreadyInProgress => 'Download already in progress';

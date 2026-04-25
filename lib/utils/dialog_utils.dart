@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/preferences_provider.dart';
+import '../providers/shortcut_provider.dart';
 import 'blur_config.dart';
 
 /// 根据用户偏好判断是否启用模糊
@@ -37,6 +38,63 @@ Widget _buildAnimatedBlurBarrier({
   );
 }
 
+Future<T?> _pushShortcutManagedRoute<T>({
+  required BuildContext context,
+  required NavigatorState navigator,
+  required Route<T> route,
+  ShortcutSurfaceConfig? shortcutSurface,
+}) {
+  if (shortcutSurface == null) {
+    return navigator.push(route);
+  }
+
+  final container = ProviderScope.containerOf(context, listen: false);
+  final registry = container.read(shortcutSurfaceRegistryProvider.notifier);
+  final owner = Object();
+
+  registry.register(
+    owner: owner,
+    id: shortcutSurface.id,
+    triggerAction: shortcutSurface.triggerAction,
+    repeatActions: shortcutSurface.repeatActions,
+    kind: shortcutSurface.kind,
+    repeatBehavior: shortcutSurface.repeatBehavior,
+    blocksShortcuts: shortcutSurface.blocksShortcuts,
+    passthroughActions: shortcutSurface.passthroughActions,
+    route: route,
+    onClose: () {
+      final routeNavigator = route.navigator;
+      if (routeNavigator != null && (route.isCurrent || route.isActive)) {
+        routeNavigator.pop();
+      }
+    },
+    onFocus: () {
+      final routeNavigator = route.navigator;
+      if (routeNavigator == null || route.isCurrent) return;
+      routeNavigator.popUntil((candidate) => identical(candidate, route));
+    },
+  );
+
+  return navigator.push(route).whenComplete(() {
+    registry.unregister(owner: owner);
+  });
+}
+
+Future<T?> pushAppRoute<T>({
+  required BuildContext context,
+  required Route<T> route,
+  bool useRootNavigator = true,
+  ShortcutSurfaceConfig? shortcutSurface,
+}) {
+  final navigator = Navigator.of(context, rootNavigator: useRootNavigator);
+  return _pushShortcutManagedRoute(
+    context: context,
+    navigator: navigator,
+    route: route,
+    shortcutSurface: shortcutSurface,
+  );
+}
+
 /// 替代 [showDialog]，自动根据用户偏好添加背景高斯模糊。
 ///
 /// API 与 [showDialog] 基本一致，额外支持 [blur] 参数控制是否启用模糊
@@ -51,33 +109,38 @@ Future<T?> showAppDialog<T>({
   RouteSettings? routeSettings,
   bool blur = true,
   Duration transitionDuration = const Duration(milliseconds: 150),
+  ShortcutSurfaceConfig? shortcutSurface,
 }) {
   final enableBlur = blur && _isBlurEnabled(context);
+  final navigator = Navigator.of(context, rootNavigator: useRootNavigator);
 
-  final themes = InheritedTheme.capture(
-    from: context,
-    to: Navigator.of(context, rootNavigator: useRootNavigator).context,
+  final themes = InheritedTheme.capture(from: context, to: navigator.context);
+
+  final route = _BlurRawDialogRoute<T>(
+    pageBuilder: (buildContext, animation, secondaryAnimation) {
+      final Widget pageChild = Builder(builder: builder);
+      return themes.wrap(SafeArea(child: pageChild));
+    },
+    barrierDismissible: barrierDismissible,
+    barrierColor:
+        barrierColor ??
+        (enableBlur
+            ? blurBarrierColor(Theme.of(context).brightness)
+            : Colors.black54),
+    barrierLabel:
+        barrierLabel ??
+        MaterialLocalizations.of(context).modalBarrierDismissLabel,
+    transitionDuration: transitionDuration,
+    transitionBuilder: _buildMaterialDialogTransitions,
+    settings: routeSettings,
+    enableBlur: enableBlur,
   );
 
-  return Navigator.of(context, rootNavigator: useRootNavigator).push<T>(
-    _BlurRawDialogRoute<T>(
-      pageBuilder: (buildContext, animation, secondaryAnimation) {
-        final Widget pageChild = Builder(builder: builder);
-        return themes.wrap(SafeArea(child: pageChild));
-      },
-      barrierDismissible: barrierDismissible,
-      barrierColor: barrierColor ??
-          (enableBlur
-              ? blurBarrierColor(Theme.of(context).brightness)
-              : Colors.black54),
-      barrierLabel:
-          barrierLabel ??
-          MaterialLocalizations.of(context).modalBarrierDismissLabel,
-      transitionDuration: transitionDuration,
-      transitionBuilder: _buildMaterialDialogTransitions,
-      settings: routeSettings,
-      enableBlur: enableBlur,
-    ),
+  return _pushShortcutManagedRoute(
+    context: context,
+    navigator: navigator,
+    route: route,
+    shortcutSurface: shortcutSurface,
   );
 }
 
@@ -93,23 +156,30 @@ Future<T?> showAppGeneralDialog<T extends Object?>({
   bool useRootNavigator = true,
   RouteSettings? routeSettings,
   bool blur = true,
+  ShortcutSurfaceConfig? shortcutSurface,
 }) {
   final enableBlur = blur && _isBlurEnabled(context);
+  final navigator = Navigator.of(context, rootNavigator: useRootNavigator);
+  final route = _BlurRawDialogRoute<T>(
+    pageBuilder: pageBuilder,
+    barrierDismissible: barrierDismissible,
+    barrierLabel: barrierLabel,
+    barrierColor:
+        barrierColor ??
+        (enableBlur
+            ? blurBarrierColor(Theme.of(context).brightness)
+            : const Color(0x80000000)),
+    transitionDuration: transitionDuration,
+    transitionBuilder: transitionBuilder,
+    settings: routeSettings,
+    enableBlur: enableBlur,
+  );
 
-  return Navigator.of(context, rootNavigator: useRootNavigator).push<T>(
-    _BlurRawDialogRoute<T>(
-      pageBuilder: pageBuilder,
-      barrierDismissible: barrierDismissible,
-      barrierLabel: barrierLabel,
-      barrierColor: barrierColor ??
-          (enableBlur
-              ? blurBarrierColor(Theme.of(context).brightness)
-              : const Color(0x80000000)),
-      transitionDuration: transitionDuration,
-      transitionBuilder: transitionBuilder,
-      settings: routeSettings,
-      enableBlur: enableBlur,
-    ),
+  return _pushShortcutManagedRoute(
+    context: context,
+    navigator: navigator,
+    route: route,
+    shortcutSurface: shortcutSurface,
   );
 }
 
@@ -148,41 +218,50 @@ Future<T?> showAppBottomSheet<T>({
   Offset? anchorPoint,
   AnimationStyle? sheetAnimationStyle,
   bool blur = true,
+  ShortcutSurfaceConfig? shortcutSurface,
 }) {
   final enableBlur = blur && _isBlurEnabled(context);
-  final NavigatorState navigator =
-      Navigator.of(context, rootNavigator: useRootNavigator);
+  final NavigatorState navigator = Navigator.of(
+    context,
+    rootNavigator: useRootNavigator,
+  );
 
-  return navigator.push(
-    _BlurModalBottomSheetRoute<T>(
-      builder: builder,
-      capturedThemes: InheritedTheme.capture(
-        from: context,
-        to: navigator.context,
-      ),
-      isScrollControlled: isScrollControlled,
-      barrierLabel:
-          barrierLabel ??
-          MaterialLocalizations.of(context).modalBarrierDismissLabel,
-      modalBarrierColor: barrierColor ??
-          (enableBlur
-              ? blurBarrierColor(Theme.of(context).brightness)
-              : Theme.of(context).bottomSheetTheme.modalBarrierColor),
-      isDismissible: isDismissible,
-      enableDrag: enableDrag,
-      showDragHandle: showDragHandle,
-      backgroundColor: backgroundColor,
-      elevation: elevation,
-      shape: shape,
-      clipBehavior: clipBehavior,
-      constraints: constraints,
-      settings: routeSettings,
-      transitionAnimationController: transitionAnimationController,
-      anchorPoint: anchorPoint,
-      useSafeArea: useSafeArea,
-      sheetAnimationStyle: sheetAnimationStyle,
-      enableBlur: enableBlur,
+  final route = _BlurModalBottomSheetRoute<T>(
+    builder: builder,
+    capturedThemes: InheritedTheme.capture(
+      from: context,
+      to: navigator.context,
     ),
+    isScrollControlled: isScrollControlled,
+    barrierLabel:
+        barrierLabel ??
+        MaterialLocalizations.of(context).modalBarrierDismissLabel,
+    modalBarrierColor:
+        barrierColor ??
+        (enableBlur
+            ? blurBarrierColor(Theme.of(context).brightness)
+            : Theme.of(context).bottomSheetTheme.modalBarrierColor),
+    isDismissible: isDismissible,
+    enableDrag: enableDrag,
+    showDragHandle: showDragHandle,
+    backgroundColor: backgroundColor,
+    elevation: elevation,
+    shape: shape,
+    clipBehavior: clipBehavior,
+    constraints: constraints,
+    settings: routeSettings,
+    transitionAnimationController: transitionAnimationController,
+    anchorPoint: anchorPoint,
+    useSafeArea: useSafeArea,
+    sheetAnimationStyle: sheetAnimationStyle,
+    enableBlur: enableBlur,
+  );
+
+  return _pushShortcutManagedRoute(
+    context: context,
+    navigator: navigator,
+    route: route,
+    shortcutSurface: shortcutSurface,
   );
 }
 
@@ -216,10 +295,7 @@ class _BlurModalBottomSheetRoute<T> extends ModalBottomSheetRoute<T> {
   Widget buildModalBarrier() {
     final barrier = super.buildModalBarrier();
     if (!enableBlur) return barrier;
-    return _buildAnimatedBlurBarrier(
-      barrier: barrier,
-      animation: animation!,
-    );
+    return _buildAnimatedBlurBarrier(barrier: barrier, animation: animation!);
   }
 }
 
@@ -242,11 +318,11 @@ class _BlurRawDialogRoute<T> extends PopupRoute<T> {
     RouteTransitionsBuilder? transitionBuilder,
     super.settings,
     this.enableBlur = false,
-  })  : _barrierDismissible = barrierDismissible,
-        _barrierLabel = barrierLabel,
-        _barrierColor = barrierColor,
-        _transitionDuration = transitionDuration,
-        _transitionBuilder = transitionBuilder;
+  }) : _barrierDismissible = barrierDismissible,
+       _barrierLabel = barrierLabel,
+       _barrierColor = barrierColor,
+       _transitionDuration = transitionDuration,
+       _transitionBuilder = transitionBuilder;
 
   @override
   bool get barrierDismissible => _barrierDismissible;
@@ -289,9 +365,6 @@ class _BlurRawDialogRoute<T> extends PopupRoute<T> {
   Widget buildModalBarrier() {
     final barrier = super.buildModalBarrier();
     if (!enableBlur) return barrier;
-    return _buildAnimatedBlurBarrier(
-      barrier: barrier,
-      animation: animation!,
-    );
+    return _buildAnimatedBlurBarrier(barrier: barrier, animation: animation!);
   }
 }

@@ -46,6 +46,7 @@ class LongPostRenderData {
 class LongPostHeaderSegment extends StatelessWidget {
   final Post post;
   final int topicId;
+  final bool selected;
   final bool highlight;
   final bool isTopicOwner;
   final String? dateSeparatorLabel;
@@ -56,6 +57,7 @@ class LongPostHeaderSegment extends StatelessWidget {
     super.key,
     required this.post,
     required this.topicId,
+    required this.selected,
     required this.highlight,
     required this.isTopicOwner,
     required this.dateSeparatorLabel,
@@ -67,6 +69,7 @@ class LongPostHeaderSegment extends StatelessWidget {
   Widget build(BuildContext context) {
     return PostSegmentFrame(
       post: post,
+      selected: selected,
       highlight: highlight,
       showTopDateSeparator: dateSeparatorLabel != null,
       topDateSeparatorLabel: dateSeparatorLabel,
@@ -89,6 +92,7 @@ class LongPostHeaderSegment extends StatelessWidget {
 class LongPostChunkSegment extends ConsumerWidget {
   final Post post;
   final int topicId;
+  final bool selected;
   final bool highlight;
   final HtmlChunk chunk;
   final LongPostRenderData renderData;
@@ -98,6 +102,7 @@ class LongPostChunkSegment extends ConsumerWidget {
     super.key,
     required this.post,
     required this.topicId,
+    required this.selected,
     required this.highlight,
     required this.chunk,
     required this.renderData,
@@ -110,12 +115,14 @@ class LongPostChunkSegment extends ConsumerWidget {
     final isModeratorAction = post.postType == PostTypes.moderatorAction;
     final contentTextStyle = theme.textTheme.bodyMedium?.copyWith(
       height: 1.5,
-      fontSize: (theme.textTheme.bodyMedium?.fontSize ?? 14) *
+      fontSize:
+          (theme.textTheme.bodyMedium?.fontSize ?? 14) *
           ref.watch(preferencesProvider).contentFontScale,
     );
 
     return PostSegmentFrame(
       post: post,
+      selected: selected,
       highlight: highlight,
       showBottomBorder: false,
       child: Padding(
@@ -123,11 +130,15 @@ class LongPostChunkSegment extends ConsumerWidget {
         child: Container(
           decoration: isModeratorAction
               ? BoxDecoration(
-                  color: theme.colorScheme.tertiaryContainer.withValues(alpha: 0.2),
+                  color: theme.colorScheme.tertiaryContainer.withValues(
+                    alpha: 0.2,
+                  ),
                   borderRadius: BorderRadius.circular(8),
                 )
               : null,
-          padding: isModeratorAction ? const EdgeInsets.all(12) : EdgeInsets.zero,
+          padding: isModeratorAction
+              ? const EdgeInsets.all(12)
+              : EdgeInsets.zero,
           child: HtmlChunkWidget(
             chunk: chunk,
             textStyle: contentTextStyle,
@@ -162,6 +173,7 @@ class LongPostChunkSegment extends ConsumerWidget {
 class LongPostFooterSegment extends StatelessWidget {
   final Post post;
   final int topicId;
+  final bool selected;
   final bool highlight;
   final bool topicHasAcceptedAnswer;
   final int? acceptedAnswerPostNumber;
@@ -180,6 +192,7 @@ class LongPostFooterSegment extends StatelessWidget {
     super.key,
     required this.post,
     required this.topicId,
+    required this.selected,
     required this.highlight,
     this.highlightBoostUsername,
     required this.topicHasAcceptedAnswer,
@@ -199,6 +212,7 @@ class LongPostFooterSegment extends StatelessWidget {
   Widget build(BuildContext context) {
     return PostSegmentFrame(
       post: post,
+      selected: selected,
       highlight: highlight,
       showBottomDateSeparator: bottomDateSeparatorLabel != null,
       bottomDateSeparatorLabel: bottomDateSeparatorLabel,

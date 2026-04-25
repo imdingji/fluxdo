@@ -13,7 +13,8 @@ class TopicScrollState {
   final bool isPositioned;
   final int? jumpTargetPostNumber;
   final int? initialCenterPostNumber;
-  final int? currentPostNumber;
+  final int? viewportPostNumber;
+  final int? keyboardSelectedPostNumber;
 
   const TopicScrollState({
     this.showBackToTop = false,
@@ -22,7 +23,8 @@ class TopicScrollState {
     this.isPositioned = false,
     this.jumpTargetPostNumber,
     this.initialCenterPostNumber,
-    this.currentPostNumber,
+    this.viewportPostNumber,
+    this.keyboardSelectedPostNumber,
   });
 
   TopicScrollState copyWith({
@@ -32,9 +34,11 @@ class TopicScrollState {
     bool? isPositioned,
     int? jumpTargetPostNumber,
     int? initialCenterPostNumber,
-    int? currentPostNumber,
+    int? viewportPostNumber,
+    int? keyboardSelectedPostNumber,
     bool clearJumpTarget = false,
     bool clearInitialCenter = false,
+    bool clearKeyboardSelected = false,
   }) {
     return TopicScrollState(
       showBackToTop: showBackToTop ?? this.showBackToTop,
@@ -47,10 +51,15 @@ class TopicScrollState {
       initialCenterPostNumber: clearInitialCenter
           ? null
           : (initialCenterPostNumber ?? this.initialCenterPostNumber),
-      currentPostNumber: currentPostNumber ?? this.currentPostNumber,
+      viewportPostNumber: viewportPostNumber ?? this.viewportPostNumber,
+      keyboardSelectedPostNumber: clearKeyboardSelected
+          ? null
+          : (keyboardSelectedPostNumber ?? this.keyboardSelectedPostNumber),
     );
   }
 }
+
+typedef PostSegmentRange = ({int firstScrollIndex, int lastScrollIndex});
 
 /// 话题详情页控制器
 /// 统一管理滚动状态、帖子高亮、可见性追踪
@@ -75,6 +84,11 @@ class TopicDetailController extends ChangeNotifier {
   /// 高亮帖子号
   final ValueNotifier<int?> highlightNotifier = ValueNotifier<int?>(null);
 
+  /// 当前快捷键锚点对应的帖子号（键盘选中优先，否则回退到当前视口帖子）
+  final ValueNotifier<int?> selectedPostNumberNotifier = ValueNotifier<int?>(
+    null,
+  );
+
   /// 待高亮的帖子号（等待列表可见后触发）
   int? pendingHighlightPostNumber;
 
@@ -88,6 +102,8 @@ class TopicDetailController extends ChangeNotifier {
   final Set<int> _readPostNumbers = {};
   int _currentVisibleStreamIndex = 1;
   Map<int, int> _postIndexToScrollIndex = const {};
+  Map<int, int> _scrollIndexToPostNumber = const {};
+  Map<int, PostSegmentRange> _postSegmentRanges = const {};
 
   /// stream 索引
   final ValueNotifier<int> streamIndexNotifier = ValueNotifier<int>(1);
@@ -102,10 +118,7 @@ class TopicDetailController extends ChangeNotifier {
     this.onScrolled,
     int? initialPostNumber,
   }) : _trackEnabled = trackEnabled,
-       _scrollState = TopicScrollState(
-         currentPostNumber: initialPostNumber,
-         jumpTargetPostNumber: initialPostNumber,
-       );
+       _scrollState = TopicScrollState(jumpTargetPostNumber: initialPostNumber);
 
   // ============ 滚动状态 Getters ============
 
@@ -116,7 +129,11 @@ class TopicDetailController extends ChangeNotifier {
   bool get isPositioned => _scrollState.isPositioned;
   int? get jumpTargetPostNumber => _scrollState.jumpTargetPostNumber;
   int? get initialCenterPostNumber => _scrollState.initialCenterPostNumber;
-  int? get currentPostNumber => _scrollState.currentPostNumber;
+  int? get viewportPostNumber => _scrollState.viewportPostNumber;
+  int? get keyboardSelectedPostNumber =>
+      _scrollState.keyboardSelectedPostNumber;
+  int? get effectivePostNumberForActions =>
+      keyboardSelectedPostNumber ?? viewportPostNumber;
 
   // ============ 高亮状态 Getters ============
 
@@ -129,6 +146,14 @@ class TopicDetailController extends ChangeNotifier {
 
   int scrollIndexForPostIndex(int postIndex) {
     return _postIndexToScrollIndex[postIndex] ?? postIndex;
+  }
+
+  int? postNumberForScrollIndex(int scrollIndex) {
+    return _scrollIndexToPostNumber[scrollIndex];
+  }
+
+  PostSegmentRange? segmentRangeForPost(int postNumber) {
+    return _postSegmentRanges[postNumber];
   }
 
   bool get trackEnabled => _trackEnabled;
@@ -144,6 +169,11 @@ class TopicDetailController extends ChangeNotifier {
   int? get topVisiblePostNumber {
     if (_visiblePostNumbers.isEmpty) return null;
     return _visiblePostNumbers.reduce((a, b) => a < b ? a : b);
+  }
+
+  int? get bottomVisiblePostNumber {
+    if (_visiblePostNumbers.isEmpty) return null;
+    return _visiblePostNumbers.reduce((a, b) => a > b ? a : b);
   }
 
   // ============ 滚动方法 ============
@@ -287,7 +317,8 @@ class TopicDetailController extends ChangeNotifier {
         isPositioned: false,
         jumpTargetPostNumber: postNumber,
         initialCenterPostNumber: null,
-        currentPostNumber: postNumber,
+        viewportPostNumber: _scrollState.viewportPostNumber,
+        keyboardSelectedPostNumber: postNumber,
       ),
     );
   }
@@ -302,7 +333,8 @@ class TopicDetailController extends ChangeNotifier {
         isPositioned: _scrollState.isPositioned,
         jumpTargetPostNumber: anchorPostNumber,
         initialCenterPostNumber: null,
-        currentPostNumber: anchorPostNumber,
+        viewportPostNumber: _scrollState.viewportPostNumber,
+        keyboardSelectedPostNumber: _scrollState.keyboardSelectedPostNumber,
       ),
     );
     if (skipHighlight) {
@@ -359,7 +391,7 @@ class TopicDetailController extends ChangeNotifier {
         isPositioned: false,
         jumpTargetPostNumber: postNumber,
         initialCenterPostNumber: anchorPostNumber ?? postNumber,
-        currentPostNumber: postNumber,
+        keyboardSelectedPostNumber: postNumber,
       ),
     );
   }
@@ -428,11 +460,30 @@ class TopicDetailController extends ChangeNotifier {
     });
   }
 
-  /// 更新当前浏览位置（由可见帖子变化驱动）
-  void updateCurrentPostNumber(int postNumber) {
-    if (_scrollState.currentPostNumber != postNumber) {
-      _scrollState = _scrollState.copyWith(currentPostNumber: postNumber);
+  /// 更新当前视口帖子（由 eyeline 可见性变化驱动）
+  void updateViewportPostNumber(int postNumber) {
+    if (_scrollState.viewportPostNumber != postNumber) {
+      _scrollState = _scrollState.copyWith(viewportPostNumber: postNumber);
     }
+  }
+
+  /// 更新键盘当前选中的帖子（J/K 导航锚点）
+  void selectKeyboardPostNumber(int? postNumber) {
+    if (_scrollState.keyboardSelectedPostNumber == postNumber) {
+      return;
+    }
+
+    _scrollState = postNumber == null
+        ? _scrollState.copyWith(clearKeyboardSelected: true)
+        : _scrollState.copyWith(keyboardSelectedPostNumber: postNumber);
+  }
+
+  /// 更新“键盘选中帖”的可视标识。
+  ///
+  /// 该标识只在 J/K 等键盘移动选择时显示，不跟随普通滚动或非快捷键跳转。
+  void updateSelectedPostIndicator(int? postNumber) {
+    if (selectedPostNumberNotifier.value == postNumber) return;
+    selectedPostNumberNotifier.value = postNumber;
   }
 
   /// 更新 stream 索引
@@ -443,12 +494,22 @@ class TopicDetailController extends ChangeNotifier {
     }
   }
 
+  /// 更新滚动索引到帖子号的映射（长帖子分段导航使用）
+  void updateScrollIndexToPostNumber(Map<int, int> mapping) {
+    _scrollIndexToPostNumber = mapping;
+  }
+
+  /// 更新帖子对应的 segment 范围（长帖子分段导航使用）
+  void updatePostSegmentRanges(Map<int, PostSegmentRange> ranges) {
+    _postSegmentRanges = ranges;
+  }
+
   /// 获取刷新时的锚点帖子号
   int getRefreshAnchorPostNumber(int? fallbackPostNumber) {
     if (_visiblePostNumbers.isNotEmpty) {
       return _visiblePostNumbers.reduce((a, b) => a < b ? a : b);
     }
-    return fallbackPostNumber ?? 1;
+    return viewportPostNumber ?? fallbackPostNumber ?? 1;
   }
 
   /// 重置可见性数据
@@ -467,6 +528,7 @@ class TopicDetailController extends ChangeNotifier {
     // 高亮相关
     _highlightTimer?.cancel();
     highlightNotifier.dispose();
+    selectedPostNumberNotifier.dispose();
 
     // 可见性相关
     _screenTrackThrottleTimer?.cancel();

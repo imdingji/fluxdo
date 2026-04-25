@@ -7,6 +7,7 @@ import '../../l10n/s.dart';
 import '../../models/shortcut_binding.dart';
 import '../../providers/shortcut_provider.dart';
 import '../../utils/dialog_utils.dart';
+import '../../widgets/shortcut/shortcut_ui.dart';
 import '../settings_model.dart';
 
 /// 快捷键设置数据声明
@@ -18,37 +19,70 @@ List<SettingsGroup> buildShortcutGroups(BuildContext context) {
       title: l10n.shortcuts_navigation,
       icon: Icons.navigation_rounded,
       items: [
-        _shortcutCustomModel(ShortcutAction.navigateBack, l10n),
-        _shortcutCustomModel(ShortcutAction.navigateBackAlt, l10n),
-        _shortcutCustomModel(ShortcutAction.openSearch, l10n),
-        _shortcutCustomModel(ShortcutAction.openSettings, l10n),
-        _shortcutCustomModel(ShortcutAction.toggleNotifications, l10n),
-        _shortcutCustomModel(ShortcutAction.switchToTopics, l10n),
-        _shortcutCustomModel(ShortcutAction.switchToProfile, l10n),
-        _shortcutCustomModel(ShortcutAction.previousTab, l10n),
-        _shortcutCustomModel(ShortcutAction.nextTab, l10n),
-        _shortcutCustomModel(ShortcutAction.switchPane, l10n),
-      ],
+        _maybeShortcutCustomModel(ShortcutAction.navigateBack, l10n),
+        _maybeShortcutCustomModel(ShortcutAction.navigateBackAlt, l10n),
+        _maybeShortcutCustomModel(ShortcutAction.openSearch, l10n),
+        _maybeShortcutCustomModel(ShortcutAction.openSettings, l10n),
+        _maybeShortcutCustomModel(ShortcutAction.toggleNotifications, l10n),
+        _maybeShortcutCustomModel(ShortcutAction.switchToTopics, l10n),
+        _maybeShortcutCustomModel(ShortcutAction.switchToProfile, l10n),
+        _maybeShortcutCustomModel(ShortcutAction.previousTab, l10n),
+        _maybeShortcutCustomModel(ShortcutAction.nextTab, l10n),
+        _maybeShortcutCustomModel(ShortcutAction.switchPane, l10n),
+      ].whereType<CustomModel>().toList(),
     ),
     SettingsGroup(
       title: l10n.shortcuts_content,
       icon: Icons.article_rounded,
       items: [
-        _shortcutCustomModel(ShortcutAction.closeOverlay, l10n),
-        _shortcutCustomModel(ShortcutAction.refresh, l10n),
-        _shortcutCustomModel(ShortcutAction.createTopic, l10n),
-        _shortcutCustomModel(ShortcutAction.nextItem, l10n),
-        _shortcutCustomModel(ShortcutAction.previousItem, l10n),
-        _shortcutCustomModel(ShortcutAction.openItem, l10n),
-        _shortcutCustomModel(ShortcutAction.toggleAiPanel, l10n),
-        _shortcutCustomModel(ShortcutAction.showShortcutHelp, l10n),
-      ],
+        _maybeShortcutCustomModel(ShortcutAction.closeOverlay, l10n),
+        _maybeShortcutCustomModel(ShortcutAction.refresh, l10n),
+        _maybeShortcutCustomModel(ShortcutAction.createTopic, l10n),
+        _maybeShortcutCustomModel(ShortcutAction.nextItem, l10n),
+        _maybeShortcutCustomModel(ShortcutAction.previousItem, l10n),
+        _maybeShortcutCustomModel(ShortcutAction.openItem, l10n),
+        _maybeShortcutCustomModel(ShortcutAction.toggleAiPanel, l10n),
+        _maybeShortcutCustomModel(ShortcutAction.showShortcutHelp, l10n),
+      ].whereType<CustomModel>().toList(),
+    ),
+    SettingsGroup(
+      title: l10n.shortcuts_topic,
+      icon: Icons.topic_outlined,
+      items: [
+        _maybeShortcutCustomModel(ShortcutAction.jumpToPost, l10n),
+        _maybeShortcutCustomModel(ShortcutAction.goToUnreadPost, l10n),
+        _maybeShortcutCustomModel(ShortcutAction.replyTopic, l10n),
+        _maybeShortcutCustomModel(ShortcutAction.shareTopic, l10n),
+        _maybeShortcutCustomModel(ShortcutAction.bookmarkTopic, l10n),
+      ].whereType<CustomModel>().toList(),
+    ),
+    SettingsGroup(
+      title: l10n.shortcuts_post,
+      icon: Icons.forum_outlined,
+      items: [
+        _maybeShortcutCustomModel(ShortcutAction.replyPost, l10n),
+        _maybeShortcutCustomModel(ShortcutAction.quotePost, l10n),
+        _maybeShortcutCustomModel(ShortcutAction.likePost, l10n),
+        _maybeShortcutCustomModel(ShortcutAction.sharePost, l10n),
+        _maybeShortcutCustomModel(ShortcutAction.bookmarkPost, l10n),
+        _maybeShortcutCustomModel(ShortcutAction.editPost, l10n),
+        _maybeShortcutCustomModel(ShortcutAction.flagPost, l10n),
+        _maybeShortcutCustomModel(ShortcutAction.deletePost, l10n),
+      ].whereType<CustomModel>().toList(),
     ),
   ];
 }
 
+CustomModel? _maybeShortcutCustomModel(
+  ShortcutAction action,
+  AppLocalizations l10n,
+) {
+  if (!shortcutActionSupported(action)) return null;
+  return _shortcutCustomModel(action, l10n);
+}
+
 CustomModel _shortcutCustomModel(ShortcutAction action, AppLocalizations l10n) {
-  final label = _actionLabel(action, l10n);
+  final label = shortcutActionLabel(action, l10n);
   return CustomModel(
     id: 'shortcut_${action.name}',
     title: label,
@@ -67,51 +101,70 @@ class _ShortcutTile extends ConsumerWidget {
     final bindings = ref.watch(shortcutProvider);
     final binding = bindings.firstWhere((b) => b.action == action);
     final theme = Theme.of(context);
+    final l10n = context.l10n;
 
-    return ListTile(
-      leading: Icon(
-        Icons.keyboard_rounded,
-        color: binding.isCustomized
-            ? theme.colorScheme.primary
-            : theme.colorScheme.onSurfaceVariant,
-        size: 22,
-      ),
-      title: Text(label, style: theme.textTheme.bodyMedium),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color:
-                    theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _showRecordKeyDialog(context, ref, binding),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurface,
+                    fontWeight: FontWeight.w600,
+                    height: 1.3,
+                  ),
+                ),
               ),
-            ),
-            child: Text(
-              ShortcutBinding.formatActivator(binding.activator),
-              style: theme.textTheme.bodySmall?.copyWith(
-                fontWeight: FontWeight.w600,
-                fontFamily: 'monospace',
+              const SizedBox(width: 16),
+              Flexible(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: Wrap(
+                    spacing: 10,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    alignment: WrapAlignment.end,
+                    children: [
+                      if (binding.isCustomized)
+                        _ShortcutMetaChip(
+                          label: l10n.common_custom,
+                          color: theme.colorScheme.primary,
+                        ),
+                      ShortcutActivatorCaps(
+                        activator: binding.activator,
+                        alignment: WrapAlignment.end,
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
+              const SizedBox(width: 12),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: theme.colorScheme.outline.withValues(alpha: 0.42),
+                size: 18,
+              ),
+            ],
           ),
-          const SizedBox(width: 4),
-          Icon(
-            Icons.chevron_right_rounded,
-            color: theme.colorScheme.outline.withValues(alpha: 0.4),
-            size: 18,
-          ),
-        ],
+        ),
       ),
-      onTap: () => _showRecordKeyDialog(context, ref, binding),
     );
   }
 
   void _showRecordKeyDialog(
-      BuildContext context, WidgetRef ref, ShortcutBinding binding) {
+    BuildContext context,
+    WidgetRef ref,
+    ShortcutBinding binding,
+  ) {
     showAppDialog(
       context: context,
       builder: (dialogContext) =>
@@ -160,7 +213,7 @@ class _RecordKeyDialogState extends State<_RecordKeyDialog> {
       autofocus: true,
       onKeyEvent: _onKeyEvent,
       child: AlertDialog(
-        title: Text(_actionLabel(widget.binding.action, l10n)),
+        title: Text(shortcutActionLabel(widget.binding.action, l10n)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -169,30 +222,38 @@ class _RecordKeyDialogState extends State<_RecordKeyDialog> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 24),
               decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest
-                    .withValues(alpha: 0.5),
+                color: theme.colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.5,
+                ),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: _conflict != null
                       ? theme.colorScheme.error.withValues(alpha: 0.5)
-                      : theme.colorScheme.outlineVariant
-                          .withValues(alpha: 0.3),
+                      : theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
                   width: 2,
                 ),
               ),
               child: Center(
-                child: Text(
-                  _recorded != null
-                      ? ShortcutBinding.formatActivator(_recorded!)
-                      : l10n.shortcuts_recordKey,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    fontFamily: _recorded != null ? 'monospace' : null,
-                    color: _recorded != null
-                        ? theme.colorScheme.onSurface
-                        : theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
+                child: _recorded != null
+                    ? ShortcutActivatorCaps(
+                        activator: _recorded!,
+                        alignment: WrapAlignment.center,
+                        spacing: 8,
+                        runSpacing: 8,
+                        minKeyWidth: 36,
+                        fontSize: 14,
+                        keyPadding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
+                      )
+                    : Text(
+                        l10n.shortcuts_recordKey,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
               ),
             ),
             // 冲突提示
@@ -200,13 +261,17 @@ class _RecordKeyDialogState extends State<_RecordKeyDialog> {
               const SizedBox(height: 12),
               Row(
                 children: [
-                  Icon(Icons.warning_amber_rounded,
-                      color: theme.colorScheme.error, size: 18),
+                  Icon(
+                    Icons.warning_amber_rounded,
+                    color: theme.colorScheme.error,
+                    size: 18,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       l10n.shortcuts_conflict(
-                          _actionLabel(_conflict!, l10n)),
+                        shortcutActionLabel(_conflict!, l10n),
+                      ),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.error,
                       ),
@@ -289,25 +354,28 @@ class _RecordKeyDialogState extends State<_RecordKeyDialog> {
   }
 }
 
-String _actionLabel(ShortcutAction action, AppLocalizations l10n) {
-  return switch (action) {
-    ShortcutAction.navigateBack => l10n.shortcuts_navigateBack,
-    ShortcutAction.navigateBackAlt => l10n.shortcuts_navigateBackAlt,
-    ShortcutAction.openSearch => l10n.shortcuts_openSearch,
-    ShortcutAction.closeOverlay => l10n.shortcuts_closeOverlay,
-    ShortcutAction.openSettings => l10n.shortcuts_openSettings,
-    ShortcutAction.refresh => l10n.shortcuts_refresh,
-    ShortcutAction.showShortcutHelp => l10n.shortcuts_showHelp,
-    ShortcutAction.nextItem => l10n.shortcuts_nextItem,
-    ShortcutAction.previousItem => l10n.shortcuts_previousItem,
-    ShortcutAction.openItem => l10n.shortcuts_openItem,
-    ShortcutAction.switchPane => l10n.shortcuts_switchPane,
-    ShortcutAction.toggleNotifications => l10n.shortcuts_toggleNotifications,
-    ShortcutAction.switchToTopics => l10n.shortcuts_switchToTopics,
-    ShortcutAction.switchToProfile => l10n.shortcuts_switchToProfile,
-    ShortcutAction.createTopic => l10n.shortcuts_createTopic,
-    ShortcutAction.previousTab => l10n.shortcuts_previousTab,
-    ShortcutAction.nextTab => l10n.shortcuts_nextTab,
-    ShortcutAction.toggleAiPanel => l10n.shortcuts_toggleAiPanel,
-  };
+class _ShortcutMetaChip extends StatelessWidget {
+  final String label;
+  final Color color;
+
+  const _ShortcutMetaChip({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: color,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
 }

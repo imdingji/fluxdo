@@ -11,6 +11,12 @@ enum ShortcutCategory {
 
   /// 内容类
   content,
+
+  /// 话题类
+  topic,
+
+  /// 帖子类
+  post,
 }
 
 /// 快捷键动作
@@ -68,6 +74,45 @@ enum ShortcutAction {
 
   /// 切换 AI 面板
   toggleAiPanel,
+
+  /// 跳转到指定楼层
+  jumpToPost,
+
+  /// 跳转到首个未读楼层
+  goToUnreadPost,
+
+  /// 回复话题
+  replyTopic,
+
+  /// 分享话题
+  shareTopic,
+
+  /// 收藏话题
+  bookmarkTopic,
+
+  /// 回复当前帖子
+  replyPost,
+
+  /// 引用当前帖子
+  quotePost,
+
+  /// 点赞当前帖子
+  likePost,
+
+  /// 分享当前帖子
+  sharePost,
+
+  /// 收藏当前帖子
+  bookmarkPost,
+
+  /// 编辑当前帖子
+  editPost,
+
+  /// 举报当前帖子
+  flagPost,
+
+  /// 删除当前帖子
+  deletePost,
 }
 
 /// 单个快捷键绑定
@@ -116,6 +161,13 @@ class ShortcutBinding {
 
   /// 将 SingleActivator 格式化为可读字符串
   static String formatActivator(SingleActivator activator) {
+    final parts = formatActivatorParts(activator);
+    final isMac = !kIsWeb && Platform.isMacOS;
+    return parts.join(isMac ? '' : '+');
+  }
+
+  /// 将 SingleActivator 格式化为键位片段（如 Ctrl / Shift / N）
+  static List<String> formatActivatorParts(SingleActivator activator) {
     final parts = <String>[];
     final isMac = !kIsWeb && Platform.isMacOS;
 
@@ -125,7 +177,7 @@ class ShortcutBinding {
         !activator.alt &&
         !activator.meta) {
       final symbol = _shiftDisplayMap[activator.trigger];
-      if (symbol != null) return symbol;
+      if (symbol != null) return [symbol];
     }
 
     if (activator.control) parts.add(isMac ? '⌃' : 'Ctrl');
@@ -134,7 +186,7 @@ class ShortcutBinding {
     if (activator.meta) parts.add(isMac ? '⌘' : 'Super');
 
     parts.add(_keyLabel(activator.trigger));
-    return parts.join(isMac ? '' : '+');
+    return List.unmodifiable(parts);
   }
 
   static String _keyLabel(LogicalKeyboardKey key) {
@@ -320,5 +372,84 @@ List<ShortcutBinding> buildDefaultBindings() {
           ? const SingleActivator(LogicalKeyboardKey.keyL, meta: true)
           : const SingleActivator(LogicalKeyboardKey.keyL, control: true),
     ),
+
+    // ── 话题 ──
+    const ShortcutBinding(
+      action: ShortcutAction.jumpToPost,
+      category: ShortcutCategory.topic,
+      defaultActivator: SingleActivator(
+        LogicalKeyboardKey.digit3,
+        shift: true,
+      ),
+    ),
+    const ShortcutBinding(
+      action: ShortcutAction.goToUnreadPost,
+      category: ShortcutCategory.topic,
+      defaultActivator: SingleActivator(LogicalKeyboardKey.keyL, shift: true),
+    ),
+    const ShortcutBinding(
+      action: ShortcutAction.replyTopic,
+      category: ShortcutCategory.topic,
+      defaultActivator: SingleActivator(LogicalKeyboardKey.keyR, shift: true),
+    ),
+    const ShortcutBinding(
+      action: ShortcutAction.shareTopic,
+      category: ShortcutCategory.topic,
+      defaultActivator: SingleActivator(LogicalKeyboardKey.keyS, shift: true),
+    ),
+    const ShortcutBinding(
+      action: ShortcutAction.bookmarkTopic,
+      category: ShortcutCategory.topic,
+      defaultActivator: SingleActivator(LogicalKeyboardKey.keyF),
+    ),
+
+    // ── 帖子 ──
+    const ShortcutBinding(
+      action: ShortcutAction.replyPost,
+      category: ShortcutCategory.post,
+      defaultActivator: SingleActivator(LogicalKeyboardKey.keyR),
+    ),
+    const ShortcutBinding(
+      action: ShortcutAction.quotePost,
+      category: ShortcutCategory.post,
+      defaultActivator: SingleActivator(LogicalKeyboardKey.keyQ),
+    ),
+    const ShortcutBinding(
+      action: ShortcutAction.likePost,
+      category: ShortcutCategory.post,
+      defaultActivator: SingleActivator(LogicalKeyboardKey.keyL),
+    ),
+    const ShortcutBinding(
+      action: ShortcutAction.sharePost,
+      category: ShortcutCategory.post,
+      defaultActivator: SingleActivator(LogicalKeyboardKey.keyS),
+    ),
+    const ShortcutBinding(
+      action: ShortcutAction.bookmarkPost,
+      category: ShortcutCategory.post,
+      defaultActivator: SingleActivator(LogicalKeyboardKey.keyB),
+    ),
+    const ShortcutBinding(
+      action: ShortcutAction.editPost,
+      category: ShortcutCategory.post,
+      defaultActivator: SingleActivator(LogicalKeyboardKey.keyE),
+    ),
+    const ShortcutBinding(
+      action: ShortcutAction.flagPost,
+      category: ShortcutCategory.post,
+      defaultActivator: SingleActivator(
+        LogicalKeyboardKey.digit1,
+        shift: true,
+      ),
+    ),
+    const ShortcutBinding(
+      action: ShortcutAction.deletePost,
+      category: ShortcutCategory.post,
+      defaultActivator: SingleActivator(LogicalKeyboardKey.keyD),
+    ),
   ];
+}
+
+bool shortcutActionSupported(ShortcutAction action) {
+  return buildDefaultBindings().any((binding) => binding.action == action);
 }

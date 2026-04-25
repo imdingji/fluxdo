@@ -18,12 +18,16 @@ class SettingsGroupPage extends ConsumerStatefulWidget {
   /// AppBar 右侧操作按钮
   final List<Widget>? actions;
 
+  /// 内容最大宽度。为 null 时铺满页面。
+  final double? maxContentWidth;
+
   const SettingsGroupPage({
     super.key,
     required this.title,
     required this.groupsBuilder,
     this.highlightId,
     this.actions,
+    this.maxContentWidth,
   });
 
   @override
@@ -63,14 +67,11 @@ class _SettingsGroupPageState extends ConsumerState<SettingsGroupPage> {
   Widget build(BuildContext context) {
     final groups = widget.groupsBuilder(context);
     final theme = Theme.of(context);
-
-    return Scaffold(
-      appBar: AppBar(title: Text(widget.title), actions: widget.actions),
-      body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        children: [
-          for (final group in groups)
-            if (_hasVisibleItems(group)) ...[
+    final listView = ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      children: [
+        for (final group in groups)
+          if (_hasVisibleItems(group)) ...[
             _buildSectionHeader(theme, group.title, group.icon),
             const SizedBox(height: 12),
             if (group.wrapInCard)
@@ -85,8 +86,20 @@ class _SettingsGroupPageState extends ConsumerState<SettingsGroupPage> {
               _buildGroupItems(theme, group),
             const SizedBox(height: 24),
           ],
-        ],
-      ),
+      ],
+    );
+
+    return Scaffold(
+      appBar: AppBar(title: Text(widget.title), actions: widget.actions),
+      body: widget.maxContentWidth == null
+          ? listView
+          : Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: widget.maxContentWidth!),
+                child: listView,
+              ),
+            ),
     );
   }
 

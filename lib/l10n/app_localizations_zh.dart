@@ -4703,6 +4703,30 @@ class AppLocalizationsZh extends AppLocalizations {
   String get shortcuts_customizeHint => '在 设置 > 快捷键 中自定义';
 
   @override
+  String get shortcuts_deletePost => '删除当前帖子';
+
+  @override
+  String get shortcuts_editPost => '编辑当前帖子';
+
+  @override
+  String get shortcuts_flagPost => '举报当前帖子';
+
+  @override
+  String get shortcuts_goToUnreadPost => '跳转到首个未读楼层';
+
+  @override
+  String get shortcuts_jumpToPost => '跳转到楼层';
+
+  @override
+  String get shortcuts_bookmarkPost => '收藏当前帖子';
+
+  @override
+  String get shortcuts_bookmarkTopic => '收藏话题';
+
+  @override
+  String get shortcuts_likePost => '点赞当前帖子';
+
+  @override
   String get shortcuts_navigateBack => '返回';
 
   @override
@@ -4727,6 +4751,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get shortcuts_openSettings => '打开设置';
 
   @override
+  String get shortcuts_post => '帖子';
+
+  @override
   String get shortcuts_previousItem => '上一个条目';
 
   @override
@@ -4739,10 +4766,25 @@ class AppLocalizationsZh extends AppLocalizations {
   String get shortcuts_refresh => '刷新';
 
   @override
+  String get shortcuts_replyPost => '回复当前帖子';
+
+  @override
+  String get shortcuts_replyTopic => '回复话题';
+
+  @override
   String get shortcuts_resetAll => '恢复所有默认';
 
   @override
   String get shortcuts_resetOne => '恢复默认';
+
+  @override
+  String get shortcuts_quotePost => '引用当前帖子';
+
+  @override
+  String get shortcuts_sharePost => '分享当前帖子';
+
+  @override
+  String get shortcuts_shareTopic => '分享话题';
 
   @override
   String get shortcuts_showHelp => '快捷键帮助';
@@ -4761,6 +4803,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get shortcuts_toggleNotifications => '通知面板';
+
+  @override
+  String get shortcuts_topic => '话题';
 
   @override
   String get download_alreadyInProgress => '已有下载任务正在进行';

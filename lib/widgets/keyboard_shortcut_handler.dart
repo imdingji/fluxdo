@@ -7,11 +7,13 @@ import '../pages/create_topic_page.dart';
 import '../pages/search_page.dart';
 import '../providers/topic_list/tab_state_provider.dart';
 import '../pages/settings_page.dart';
-import '../pages/topics_page.dart';
 import '../providers/shortcut_provider.dart';
+import '../utils/dialog_utils.dart';
 import '../utils/platform_utils.dart';
 import 'notification/notification_quick_panel.dart';
 import 'shortcut_help_overlay.dart';
+
+enum _ShortcutSurfaceDispatch { pass, handled, blocked }
 
 /// 全局键盘快捷键处理器
 ///
@@ -34,8 +36,6 @@ class KeyboardShortcutHandler extends ConsumerStatefulWidget {
 
 class _KeyboardShortcutHandlerState
     extends ConsumerState<KeyboardShortcutHandler> {
-  bool _isHelpOverlayOpen = false;
-
   @override
   void initState() {
     super.initState();
@@ -58,29 +58,16 @@ class _KeyboardShortcutHandlerState
     // 如果焦点在文本输入框中，不拦截（让用户正常打字）
     if (_isFocusInTextInput()) return false;
 
-    // 有弹框/底部弹窗等模态路由时，不拦截快捷键
-    // （让 Flutter 默认行为处理，如 ESC 关闭弹框）
-    // 例外：? 帮助面板的切换关闭由 _handleGlobalAction 处理
-    if (_isModalOnTop()) {
-      // 只允许帮助面板切换（用于关闭）
-      final bindings = ref.read(shortcutProvider);
-      for (final binding in bindings) {
-        if (binding.action == ShortcutAction.showShortcutHelp &&
-            matchKeyEvent(event, binding.activator) &&
-            _isHelpOverlayOpen) {
-          final navContext = widget.navigatorKey.currentContext;
-          if (navContext != null) Navigator.of(navContext).pop();
-          _isHelpOverlayOpen = false;
-          return true;
-        }
-      }
-      return false;
-    }
-
     final bindings = ref.read(shortcutProvider);
 
     for (final binding in bindings) {
       if (!matchKeyEvent(event, binding.activator)) continue;
+
+      final surfaceDispatch = _handleSurfaceBeforeDispatch(binding.action);
+      if (surfaceDispatch == _ShortcutSurfaceDispatch.handled ||
+          surfaceDispatch == _ShortcutSurfaceDispatch.blocked) {
+        return true;
+      }
 
       // 先尝试上下文回调（J/K/Enter 等页面级动作）
       final callback = _resolveContextCallback(binding.action);
@@ -97,35 +84,105 @@ class _KeyboardShortcutHandlerState
     return false;
   }
 
-  /// 检查是否有模态路由（Dialog/BottomSheet）在栈顶
-  bool _isModalOnTop() {
-    final nav = widget.navigatorKey.currentState;
-    if (nav == null) return false;
-    var isModal = false;
-    nav.popUntil((route) {
-      if (route.isCurrent && route is ModalRoute && !route.isFirst) {
-        // 非首页路由且是当前路由 — 检查是否是 Dialog/BottomSheet 类型
-        if (route is DialogRoute || route is ModalBottomSheetRoute) {
-          isModal = true;
+  _ShortcutSurfaceDispatch _handleSurfaceBeforeDispatch(ShortcutAction action) {
+    final currentRoute = _currentTopRoute();
+    if (currentRoute == null) return _ShortcutSurfaceDispatch.pass;
+
+    final registry = ref.read(shortcutSurfaceRegistryProvider);
+    final topSurface = resolveTopShortcutSurface(
+      registry: registry,
+      route: currentRoute,
+    );
+    if (topSurface != null) {
+      if (_isCloseSurfaceAction(action)) {
+        _closeSurface(topSurface, fallbackRoute: currentRoute);
+        return _ShortcutSurfaceDispatch.handled;
+      }
+
+      if (topSurface.matchesAction(action)) {
+        switch (topSurface.repeatBehavior) {
+          case ShortcutSurfaceRepeatBehavior.toggle:
+            _closeSurface(topSurface, fallbackRoute: currentRoute);
+            return _ShortcutSurfaceDispatch.handled;
+          case ShortcutSurfaceRepeatBehavior.dedupe:
+          case ShortcutSurfaceRepeatBehavior.reveal:
+            topSurface.onFocus?.call();
+            return _ShortcutSurfaceDispatch.handled;
+          case ShortcutSurfaceRepeatBehavior.replace:
+            _closeSurface(topSurface, fallbackRoute: currentRoute);
+            return _ShortcutSurfaceDispatch.pass;
         }
       }
-      return true; // 不实际 pop
-    });
-    return isModal;
+
+      if (topSurface.allowsPassthrough(action)) {
+        return _ShortcutSurfaceDispatch.pass;
+      }
+
+      if (topSurface.blocksShortcuts) {
+        return _ShortcutSurfaceDispatch.blocked;
+      }
+    }
+
+    if (currentRoute is PopupRoute && !currentRoute.isFirst) {
+      if (_isCloseSurfaceAction(action)) {
+        widget.navigatorKey.currentState?.maybePop();
+        return _ShortcutSurfaceDispatch.handled;
+      }
+      return _ShortcutSurfaceDispatch.blocked;
+    }
+
+    return _ShortcutSurfaceDispatch.pass;
+  }
+
+  bool _isCloseSurfaceAction(ShortcutAction action) {
+    return action == ShortcutAction.closeOverlay ||
+        action == ShortcutAction.navigateBack ||
+        action == ShortcutAction.navigateBackAlt;
+  }
+
+  void _closeSurface(
+    ShortcutSurfaceRegistration surface, {
+    required Route<dynamic> fallbackRoute,
+  }) {
+    final onClose = surface.onClose;
+    if (onClose != null) {
+      onClose();
+      return;
+    }
+
+    if (fallbackRoute is PopupRoute) {
+      widget.navigatorKey.currentState?.maybePop();
+    }
   }
 
   /// 根据活跃面板解析上下文回调
   VoidCallback? _resolveContextCallback(ShortcutAction action) {
+    final currentRoute = _currentTopRoute();
+    if (currentRoute == null) return null;
+    final registry = ref.read(shortcutScopeRegistryProvider);
+
     // 1. 单栏模式的上下文回调（优先级最高，全屏详情页等）
-    final singlePane = ref.read(contextShortcutsProvider);
-    if (singlePane.containsKey(action)) return singlePane[action];
+    final singlePane = resolveShortcutScopeCallbacks(
+      registry: registry,
+      scope: ShortcutScope.context,
+      route: currentRoute,
+    );
+    if (singlePane.containsKey(action)) {
+      return singlePane[action];
+    }
 
     // 2. 双栏模式：仅查找活跃面板的回调，不回退到另一面板
     final activePane = ref.read(activePaneProvider);
-    final activeCallbacks = activePane == ActivePane.master
-        ? ref.read(masterShortcutsProvider)
-        : ref.read(detailShortcutsProvider);
-    if (activeCallbacks.containsKey(action)) return activeCallbacks[action];
+    final activeCallbacks = resolveShortcutScopeCallbacks(
+      registry: registry,
+      scope: activePane == ActivePane.master
+          ? ShortcutScope.master
+          : ShortcutScope.detail,
+      route: currentRoute,
+    );
+    if (activeCallbacks.containsKey(action)) {
+      return activeCallbacks[action];
+    }
 
     return null;
   }
@@ -133,6 +190,7 @@ class _KeyboardShortcutHandlerState
   bool _handleGlobalAction(ShortcutAction action) {
     final nav = widget.navigatorKey.currentState;
     if (nav == null) return false;
+    final navContext = widget.navigatorKey.currentContext ?? nav.context;
 
     switch (action) {
       case ShortcutAction.navigateBack:
@@ -140,19 +198,35 @@ class _KeyboardShortcutHandlerState
         nav.maybePop();
         return true;
       case ShortcutAction.openSearch:
-        if (_isTopRoute(nav, 'search')) return true;
-        nav.push(MaterialPageRoute(
-          settings: const RouteSettings(name: 'search'),
-          builder: (_) => const SearchPage(),
-        ));
-        return true;
+        return _pushOrRevealRoute(
+          context: navContext,
+          route: MaterialPageRoute(
+            settings: const RouteSettings(name: 'search'),
+            builder: (_) => const SearchPage(),
+          ),
+          shortcutSurface: const ShortcutSurfaceConfig(
+            id: ShortcutSurfaceIds.search,
+            triggerAction: ShortcutAction.openSearch,
+            repeatBehavior: ShortcutSurfaceRepeatBehavior.reveal,
+            passthroughActions:
+                ShortcutSurfaceActionSets.globalRoutePassthrough,
+          ),
+        );
       case ShortcutAction.openSettings:
-        if (_isTopRoute(nav, 'settings')) return true;
-        nav.push(MaterialPageRoute(
-          settings: const RouteSettings(name: 'settings'),
-          builder: (_) => const SettingsPage(),
-        ));
-        return true;
+        return _pushOrRevealRoute(
+          context: navContext,
+          route: MaterialPageRoute(
+            settings: const RouteSettings(name: 'settings'),
+            builder: (_) => const SettingsPage(),
+          ),
+          shortcutSurface: const ShortcutSurfaceConfig(
+            id: ShortcutSurfaceIds.settings,
+            triggerAction: ShortcutAction.openSettings,
+            repeatBehavior: ShortcutSurfaceRepeatBehavior.reveal,
+            passthroughActions:
+                ShortcutSurfaceActionSets.globalRoutePassthrough,
+          ),
+        );
       case ShortcutAction.refresh:
         final activePane = ref.read(activePaneProvider);
         if (activePane == ActivePane.detail) {
@@ -163,30 +237,23 @@ class _KeyboardShortcutHandlerState
         desktopRefreshNotifier.value++;
         return true;
       case ShortcutAction.showShortcutHelp:
-        // 切换：已打开则关闭，未打开则打开
-        final navContext = widget.navigatorKey.currentContext;
-        if (navContext == null) return true;
-        if (_isHelpOverlayOpen) {
-          Navigator.of(navContext).pop();
-        } else {
-          _isHelpOverlayOpen = true;
-          showShortcutHelpOverlay(navContext, ref).then((_) {
-            _isHelpOverlayOpen = false;
-          });
+        if (navContext.mounted) {
+          showShortcutHelpOverlay(navContext, ref);
+          return true;
         }
-        return true;
+        return false;
       case ShortcutAction.switchPane:
         final current = ref.read(activePaneProvider);
-        ref.read(activePaneProvider.notifier).state =
-            current == ActivePane.master
-                ? ActivePane.detail
-                : ActivePane.master;
+        ref
+            .read(activePaneProvider.notifier)
+            .state = current == ActivePane.master
+            ? ActivePane.detail
+            : ActivePane.master;
         // 触发 HUD 信号（仅键盘切换时）
         ref.read(paneSwitchSignalProvider.notifier).update((v) => v + 1);
         return true;
       case ShortcutAction.toggleNotifications:
-        final navContext = widget.navigatorKey.currentContext;
-        if (navContext != null) {
+        if (navContext.mounted) {
           NotificationQuickPanel.show(navContext);
         }
         return true;
@@ -197,39 +264,84 @@ class _KeyboardShortcutHandlerState
         ref.read(switchTabProvider.notifier).state = 1;
         return true;
       case ShortcutAction.createTopic:
-        if (_isTopRoute(nav, 'search') || _isTopRoute(nav, 'settings')) {
-          return true;
-        }
-        nav.push(MaterialPageRoute(
-          builder: (_) => CreateTopicPage(
-            initialCategoryId: ref.read(currentTabCategoryIdProvider),
+        return _pushOrRevealRoute(
+          context: navContext,
+          route: MaterialPageRoute(
+            builder: (_) => CreateTopicPage(
+              initialCategoryId: ref.read(currentTabCategoryIdProvider),
+            ),
           ),
-        ));
-        return true;
-      // 以下是上下文动作，不在此处处理
+          shortcutSurface: const ShortcutSurfaceConfig(
+            id: ShortcutSurfaceIds.createTopic,
+            triggerAction: ShortcutAction.createTopic,
+            repeatBehavior: ShortcutSurfaceRepeatBehavior.reveal,
+            passthroughActions:
+                ShortcutSurfaceActionSets.globalRoutePassthrough,
+          ),
+        );
       case ShortcutAction.closeOverlay:
       case ShortcutAction.nextItem:
       case ShortcutAction.previousItem:
       case ShortcutAction.openItem:
+      case ShortcutAction.previousTab:
+      case ShortcutAction.nextTab:
+      case ShortcutAction.jumpToPost:
+      case ShortcutAction.goToUnreadPost:
+      case ShortcutAction.replyTopic:
+      case ShortcutAction.shareTopic:
+      case ShortcutAction.bookmarkTopic:
+      case ShortcutAction.replyPost:
+      case ShortcutAction.quotePost:
+      case ShortcutAction.likePost:
+      case ShortcutAction.sharePost:
+      case ShortcutAction.bookmarkPost:
+      case ShortcutAction.editPost:
+      case ShortcutAction.flagPost:
+      case ShortcutAction.deletePost:
+        return false;
       case ShortcutAction.toggleAiPanel:
         toggleAiPanelNotifier.value++;
         return true;
-      case ShortcutAction.previousTab:
-      case ShortcutAction.nextTab:
-        return false;
     }
   }
 
-  /// 检查当前栈顶路由名是否匹配
-  bool _isTopRoute(NavigatorState nav, String routeName) {
-    var isTop = false;
+  bool _pushOrRevealRoute({
+    required BuildContext context,
+    required Route<dynamic> route,
+    required ShortcutSurfaceConfig shortcutSurface,
+  }) {
+    final registry = ref.read(shortcutSurfaceRegistryProvider);
+    final existingSurface = findLatestShortcutSurface(
+      registry: registry,
+      id: shortcutSurface.id,
+      kind: ShortcutSurfaceKind.route,
+    );
+
+    if (existingSurface != null) {
+      existingSurface.onFocus?.call();
+      return true;
+    }
+
+    pushAppRoute<dynamic>(
+      context: context,
+      route: route,
+      shortcutSurface: shortcutSurface,
+    );
+    return true;
+  }
+
+  Route<dynamic>? _currentTopRoute() {
+    final nav = widget.navigatorKey.currentState;
+    if (nav == null) return null;
+
+    Route<dynamic>? currentRoute;
     nav.popUntil((route) {
       if (route.isCurrent) {
-        isTop = route.settings.name == routeName;
+        currentRoute = route;
       }
-      return true; // 不实际 pop，只是遍历
+      return true;
     });
-    return isTop;
+    return currentRoute;
   }
 
   /// 检查焦点是否在文本输入框中

@@ -4,6 +4,7 @@ import 'package:fluxdo/widgets/common/loading_spinner.dart';
 import 'package:fluxdo/widgets/markdown_editor/markdown_editor.dart';
 import 'package:fluxdo/models/category.dart';
 import 'package:fluxdo/models/draft.dart';
+import 'package:fluxdo/models/shortcut_binding.dart';
 
 import 'package:fluxdo/providers/discourse_providers.dart';
 import 'package:fluxdo/services/toast_service.dart';
@@ -13,6 +14,7 @@ import 'package:fluxdo/services/network/exceptions/api_exception.dart';
 import 'package:fluxdo/widgets/markdown_editor/markdown_renderer.dart';
 import 'package:fluxdo/services/draft_controller.dart';
 import 'package:fluxdo/services/preloaded_data_service.dart';
+import 'package:fluxdo/providers/shortcut_provider.dart';
 import 'package:fluxdo/widgets/topic/topic_editor_helpers.dart';
 import '../l10n/s.dart';
 import '../utils/dialog_utils.dart';
@@ -21,11 +23,7 @@ class CreateTopicPage extends ConsumerStatefulWidget {
   final int? initialCategoryId;
   final List<String>? initialTags;
 
-  const CreateTopicPage({
-    super.key,
-    this.initialCategoryId,
-    this.initialTags,
-  });
+  const CreateTopicPage({super.key, this.initialCategoryId, this.initialTags});
 
   @override
   ConsumerState<CreateTopicPage> createState() => _CreateTopicPageState();
@@ -37,6 +35,16 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
   final _contentController = TextEditingController();
   final _contentFocusNode = FocusNode();
   final _editorKey = GlobalKey<MarkdownEditorState>();
+  late final ShortcutSurfaceBinding _shortcutSurfaceBinding =
+      ShortcutSurfaceBinding(
+        ref: ref,
+        id: ShortcutSurfaceIds.createTopic,
+        triggerAction: ShortcutAction.createTopic,
+        kind: ShortcutSurfaceKind.route,
+        repeatBehavior: ShortcutSurfaceRepeatBehavior.reveal,
+        passthroughActions: ShortcutSurfaceActionSets.globalRoutePassthrough,
+      );
+  ModalRoute<dynamic>? _route;
 
   Category? _selectedCategory;
   List<String> _selectedTags = [];
@@ -70,6 +78,26 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
 
     // 从当前筛选条件自动填入分类和标签
     WidgetsBinding.instance.addPostFrameCallback((_) => _applyCurrentFilter());
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route == null || identical(route, _route)) return;
+    _route = route;
+    _shortcutSurfaceBinding.registerDeferred(
+      context,
+      onClose: () => Navigator.of(context).maybePop(),
+      onFocus: _revealSelf,
+    );
+  }
+
+  void _revealSelf() {
+    final route = _route;
+    final navigator = route?.navigator;
+    if (route == null || navigator == null || route.isCurrent) return;
+    navigator.popUntil((candidate) => identical(candidate, route));
   }
 
   /// 加载现有草稿
@@ -144,7 +172,9 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
     ref.listenManual(categoriesProvider, (previous, next) {
       next.whenData((categories) {
         if (!mounted) return;
-        final category = categories.where((c) => c.id == categoryId).firstOrNull;
+        final category = categories
+            .where((c) => c.id == categoryId)
+            .firstOrNull;
         if (category != null && category.canCreateTopic) {
           setState(() => _selectedCategory = category);
         }
@@ -194,10 +224,13 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
   void _applyCurrentFilter() async {
     // 优先使用传入的分类，否则使用站点默认分类
     int? targetCategoryId = widget.initialCategoryId;
-    targetCategoryId ??= await PreloadedDataService().getDefaultComposerCategoryId();
+    targetCategoryId ??= await PreloadedDataService()
+        .getDefaultComposerCategoryId();
 
     // 应用传入的标签
-    if (widget.initialTags != null && widget.initialTags!.isNotEmpty && _selectedTags.isEmpty) {
+    if (widget.initialTags != null &&
+        widget.initialTags!.isNotEmpty &&
+        _selectedTags.isEmpty) {
       setState(() => _selectedTags = List.from(widget.initialTags!));
     }
 
@@ -206,8 +239,12 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
       ref.listenManual(categoriesProvider, (previous, next) {
         next.whenData((categories) {
           if (!mounted) return;
-          final category = categories.where((c) => c.id == targetCategoryId).firstOrNull;
-          if (category != null && category.canCreateTopic && _selectedCategory == null) {
+          final category = categories
+              .where((c) => c.id == targetCategoryId)
+              .firstOrNull;
+          if (category != null &&
+              category.canCreateTopic &&
+              _selectedCategory == null) {
             _onCategorySelected(category);
           }
         });
@@ -217,13 +254,15 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
 
   @override
   void dispose() {
+    _shortcutSurfaceBinding.disposeDeferred();
     // 移除草稿监听器
     _titleController.removeListener(_onDraftContentChanged);
     _contentController.removeListener(_onDraftContentChanged);
 
     // 关闭时处理草稿：已提交则跳过，有内容则保存，无内容则删除
     if (!_submitted) {
-      if (_titleController.text.trim().isNotEmpty || _contentController.text.trim().isNotEmpty) {
+      if (_titleController.text.trim().isNotEmpty ||
+          _contentController.text.trim().isNotEmpty) {
         final data = DraftData(
           title: _titleController.text,
           reply: _contentController.text,
@@ -257,8 +296,10 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
 
     final currentContent = _contentController.text.trim();
     if (currentContent.isEmpty ||
-        (_templateContent != null && currentContent == _templateContent!.trim())) {
-      if (category.topicTemplate != null && category.topicTemplate!.isNotEmpty) {
+        (_templateContent != null &&
+            currentContent == _templateContent!.trim())) {
+      if (category.topicTemplate != null &&
+          category.topicTemplate!.isNotEmpty) {
         _contentController.text = category.topicTemplate!;
         _templateContent = category.topicTemplate;
       } else {
@@ -279,9 +320,17 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
 
   void _togglePreview() {
     if (_showPreview) {
-      _pageController.animateToPage(0, duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+      _pageController.animateToPage(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
     } else {
-      _pageController.animateToPage(1, duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+      _pageController.animateToPage(
+        1,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
       FocusScope.of(context).unfocus();
     }
   }
@@ -306,7 +355,9 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
     }
     if (contentText.length < minContentLength) {
       if (_showPreview) _togglePreview();
-      ToastService.showInfo(S.current.createTopic_minContentLength(minContentLength));
+      ToastService.showInfo(
+        S.current.createTopic_minContentLength(minContentLength),
+      );
       return;
     }
 
@@ -319,7 +370,9 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
     if (_selectedCategory!.minimumRequiredTags > 0 &&
         _selectedTags.length < _selectedCategory!.minimumRequiredTags) {
       if (_showPreview) _togglePreview();
-      ToastService.showInfo(S.current.createTopic_minTags(_selectedCategory!.minimumRequiredTags));
+      ToastService.showInfo(
+        S.current.createTopic_minTags(_selectedCategory!.minimumRequiredTags),
+      );
       return;
     }
 
@@ -455,7 +508,10 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
                     ? const SizedBox(
                         width: 16,
                         height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
                       )
                     : Text(context.l10n.common_publish),
               ),
@@ -467,203 +523,264 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
             return Stack(
               children: [
                 Column(
-              children: [
-                Expanded(
-                  child: PageView(
-                    controller: _pageController,
-                    allowImplicitScrolling: true,
-                    onPageChanged: (index) {
-                      setState(() {
-                        _showPreview = index == 1;
-                      });
-                      if (_showPreview) {
-                        FocusScope.of(context).unfocus();
-                        _editorKey.currentState?.closeEmojiPanel();
-                      }
-                    },
-                    children: [
-                      // Page 0: 编辑模式
-                      Column(
+                  children: [
+                    Expanded(
+                      child: PageView(
+                        controller: _pageController,
+                        allowImplicitScrolling: true,
+                        onPageChanged: (index) {
+                          setState(() {
+                            _showPreview = index == 1;
+                          });
+                          if (_showPreview) {
+                            FocusScope.of(context).unfocus();
+                            _editorKey.currentState?.closeEmojiPanel();
+                          }
+                        },
                         children: [
-                          // 标题 + 元数据区域
-                          Form(
-                            key: _formKey,
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // 标题输入
-                                  TextFormField(
-                                    controller: _titleController,
-                                    decoration: InputDecoration(
-                                      hintText: context.l10n.createTopic_titleHint,
-                                      hintStyle: TextStyle(
-                                        color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-                                        fontWeight: FontWeight.normal,
-                                      ),
-                                      border: InputBorder.none,
-                                      contentPadding: EdgeInsets.zero,
-                                      isDense: true,
-                                    ),
-                                    style: theme.textTheme.headlineSmall?.copyWith(
-                                      fontWeight: FontWeight.w900,
-                                      letterSpacing: -0.5,
-                                    ),
-                                    maxLines: null,
-                                    maxLength: 200,
-                                    buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null,
-                                    validator: (value) {
-                                      if (value == null || value.trim().isEmpty) return context.l10n.createTopic_enterTitle;
-                                      if (value.trim().length < minTitleLength) return context.l10n.createTopic_minTitleLength(minTitleLength);
-                                      return null;
-                                    },
-                                    onTap: () {
-                                      _editorKey.currentState?.closeEmojiPanel();
-                                    },
+                          // Page 0: 编辑模式
+                          Column(
+                            children: [
+                              // 标题 + 元数据区域
+                              Form(
+                                key: _formKey,
+                                child: Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    20,
+                                    16,
+                                    20,
+                                    0,
                                   ),
-
-                                  const SizedBox(height: 16),
-
-                                  // 元数据区域 (分类 + 标签)
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
+                                      // 标题输入
+                                      TextFormField(
+                                        controller: _titleController,
+                                        decoration: InputDecoration(
+                                          hintText: context
+                                              .l10n
+                                              .createTopic_titleHint,
+                                          hintStyle: TextStyle(
+                                            color: theme
+                                                .colorScheme
+                                                .onSurfaceVariant
+                                                .withValues(alpha: 0.5),
+                                            fontWeight: FontWeight.normal,
+                                          ),
+                                          border: InputBorder.none,
+                                          contentPadding: EdgeInsets.zero,
+                                          isDense: true,
+                                        ),
+                                        style: theme.textTheme.headlineSmall
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w900,
+                                              letterSpacing: -0.5,
+                                            ),
+                                        maxLines: null,
+                                        maxLength: 200,
+                                        buildCounter:
+                                            (
+                                              context, {
+                                              required currentLength,
+                                              required isFocused,
+                                              maxLength,
+                                            }) => null,
+                                        validator: (value) {
+                                          if (value == null ||
+                                              value.trim().isEmpty) {
+                                            return context
+                                                .l10n
+                                                .createTopic_enterTitle;
+                                          }
+                                          if (value.trim().length <
+                                              minTitleLength) {
+                                            return context.l10n
+                                                .createTopic_minTitleLength(
+                                                  minTitleLength,
+                                                );
+                                          }
+                                          return null;
+                                        },
+                                        onTap: () {
+                                          _editorKey.currentState
+                                              ?.closeEmojiPanel();
+                                        },
+                                      ),
+
+                                      const SizedBox(height: 16),
+
+                                      // 元数据区域 (分类 + 标签)
+                                      Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          CategoryTrigger(
+                                            category: _selectedCategory,
+                                            categories: categories,
+                                            onSelected: _onCategorySelected,
+                                          ),
+                                          if (canTagTopics) ...[
+                                            const SizedBox(height: 12),
+                                            tagsAsync.when(
+                                              data: (tags) => TagsArea(
+                                                selectedCategory:
+                                                    _selectedCategory,
+                                                selectedTags: _selectedTags,
+                                                allTags: tags,
+                                                onTagsChanged: _onTagsChanged,
+                                              ),
+                                              loading: () =>
+                                                  const SizedBox.shrink(),
+                                              error: (e, s) =>
+                                                  const SizedBox.shrink(),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+
+                                      const SizedBox(height: 20),
+                                      Divider(
+                                        height: 1,
+                                        color: theme.colorScheme.outlineVariant
+                                            .withValues(alpha: 0.3),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+
+                              // 字符计数
+                              Padding(
+                                padding: const EdgeInsets.only(
+                                  right: 20,
+                                  top: 8,
+                                ),
+                                child: Align(
+                                  alignment: Alignment.centerRight,
+                                  child: Text(
+                                    context.l10n.createTopic_charCount(
+                                      _contentLength,
+                                    ),
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ),
+                              ),
+
+                              // 内容编辑器
+                              Expanded(
+                                child: MarkdownEditor(
+                                  key: _editorKey,
+                                  controller: _contentController,
+                                  focusNode: _contentFocusNode,
+                                  hintText:
+                                      context.l10n.createTopic_contentHint,
+                                  expands: true,
+                                  emojiPanelHeight: 350,
+                                  onTogglePreview: _togglePreview,
+                                  isPreview: _showPreview,
+                                  onEmojiPanelChanged: (show) {
+                                    setState(() => _showEmojiPanel = show);
+                                  },
+                                  mentionDataSource: (term) => ref
+                                      .read(discourseServiceProvider)
+                                      .searchUsers(
+                                        term: term,
+                                        categoryId: _selectedCategory?.id,
+                                        includeGroups: true,
+                                      ),
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          // Page 1: 预览模式
+                          SingleChildScrollView(
+                            padding: EdgeInsets.fromLTRB(
+                              24,
+                              24,
+                              24,
+                              MediaQuery.paddingOf(context).bottom + 80,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _titleController.text.isEmpty
+                                      ? context.l10n.createTopic_noTitle
+                                      : _titleController.text,
+                                  style: theme.textTheme.headlineSmall
+                                      ?.copyWith(
+                                        fontWeight: FontWeight.w900,
+                                        letterSpacing: -0.5,
+                                      ),
+                                ),
+                                const SizedBox(height: 16),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: [
+                                    if (_selectedCategory != null)
                                       CategoryTrigger(
                                         category: _selectedCategory,
                                         categories: categories,
                                         onSelected: _onCategorySelected,
                                       ),
-                                      if (canTagTopics) ...[
-                                        const SizedBox(height: 12),
-                                        tagsAsync.when(
-                                          data: (tags) => TagsArea(
-                                            selectedCategory: _selectedCategory,
-                                            selectedTags: _selectedTags,
-                                            allTags: tags,
-                                            onTagsChanged: _onTagsChanged,
-                                          ),
-                                          loading: () => const SizedBox.shrink(),
-                                          error: (e, s) => const SizedBox.shrink(),
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-
-                                  const SizedBox(height: 20),
-                                  Divider(height: 1, color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3)),
-                                ],
-                              ),
-                            ),
-                          ),
-
-                          // 字符计数
-                          Padding(
-                            padding: const EdgeInsets.only(right: 20, top: 8),
-                            child: Align(
-                              alignment: Alignment.centerRight,
-                              child: Text(
-                                context.l10n.createTopic_charCount(_contentLength),
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
+                                    PreviewTagsList(tags: _selectedTags),
+                                  ],
                                 ),
-                              ),
-                            ),
-                          ),
-
-                          // 内容编辑器
-                          Expanded(
-                            child: MarkdownEditor(
-                              key: _editorKey,
-                              controller: _contentController,
-                              focusNode: _contentFocusNode,
-                              hintText: context.l10n.createTopic_contentHint,
-                              expands: true,
-                              emojiPanelHeight: 350,
-                              onTogglePreview: _togglePreview,
-                              isPreview: _showPreview,
-                              onEmojiPanelChanged: (show) {
-                                setState(() => _showEmojiPanel = show);
-                              },
-                              mentionDataSource: (term) => ref.read(discourseServiceProvider).searchUsers(
-                                term: term,
-                                categoryId: _selectedCategory?.id,
-                                includeGroups: true,
-                              ),
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 24),
+                                  child: Divider(height: 1),
+                                ),
+                                if (_contentController.text.isEmpty)
+                                  Text(
+                                    context.l10n.createTopic_noContent,
+                                    style: TextStyle(
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                  )
+                                else
+                                  MarkdownBody(data: _contentController.text),
+                              ],
                             ),
                           ),
                         ],
                       ),
-
-                      // Page 1: 预览模式
-                      SingleChildScrollView(
-                        padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.paddingOf(context).bottom + 80),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _titleController.text.isEmpty ? context.l10n.createTopic_noTitle : _titleController.text,
-                              style: theme.textTheme.headlineSmall?.copyWith(
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: -0.5,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: [
-                                if (_selectedCategory != null)
-                                  CategoryTrigger(
-                                    category: _selectedCategory,
-                                    categories: categories,
-                                    onSelected: _onCategorySelected,
-                                  ),
-                                PreviewTagsList(tags: _selectedTags),
-                              ],
-                            ),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 24),
-                              child: Divider(height: 1),
-                            ),
-                            if (_contentController.text.isEmpty)
-                              Text(
-                                context.l10n.createTopic_noContent,
-                                style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
-                              )
-                            else
-                              MarkdownBody(data: _contentController.text),
-                          ],
-                        ),
-                      ),
-                    ],
+                    ),
+                  ],
+                ),
+                // 预览模式下的退出预览按钮
+                if (_showPreview)
+                  Positioned(
+                    right: 16,
+                    bottom: MediaQuery.paddingOf(context).bottom + 16,
+                    child: FloatingActionButton.small(
+                      onPressed: _togglePreview,
+                      tooltip: context.l10n.common_exitPreview,
+                      child: const Icon(Icons.edit_outlined),
+                    ),
                   ),
-                ),
+                // 草稿加载遮罩
+                if (_isLoadingDraft)
+                  Positioned.fill(
+                    child: Container(
+                      color: theme.colorScheme.surface.withValues(alpha: 0.7),
+                      child: const Center(child: LoadingSpinner()),
+                    ),
+                  ),
               ],
-            ),
-            // 预览模式下的退出预览按钮
-            if (_showPreview)
-              Positioned(
-                right: 16,
-                bottom: MediaQuery.paddingOf(context).bottom + 16,
-                child: FloatingActionButton.small(
-                  onPressed: _togglePreview,
-                  tooltip: context.l10n.common_exitPreview,
-                  child: const Icon(Icons.edit_outlined),
-                ),
-              ),
-            // 草稿加载遮罩
-            if (_isLoadingDraft)
-              Positioned.fill(
-                child: Container(
-                  color: theme.colorScheme.surface.withValues(alpha: 0.7),
-                  child: const Center(child: LoadingSpinner()),
-                ),
-              ),
-          ]);
+            );
           },
           loading: () => const Center(child: LoadingSpinner()),
-          error: (err, stack) => Center(child: Text(context.l10n.createTopic_loadCategoryFailed(err.toString()))),
+          error: (err, stack) => Center(
+            child: Text(
+              context.l10n.createTopic_loadCategoryFailed(err.toString()),
+            ),
+          ),
         ),
       ),
     );

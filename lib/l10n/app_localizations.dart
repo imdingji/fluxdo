@@ -8812,6 +8812,54 @@ abstract class AppLocalizations {
   /// **'在 设置 > 快捷键 中自定义'**
   String get shortcuts_customizeHint;
 
+  /// No description provided for @shortcuts_deletePost.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除当前帖子'**
+  String get shortcuts_deletePost;
+
+  /// No description provided for @shortcuts_editPost.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑当前帖子'**
+  String get shortcuts_editPost;
+
+  /// No description provided for @shortcuts_flagPost.
+  ///
+  /// In zh, this message translates to:
+  /// **'举报当前帖子'**
+  String get shortcuts_flagPost;
+
+  /// No description provided for @shortcuts_goToUnreadPost.
+  ///
+  /// In zh, this message translates to:
+  /// **'跳转到首个未读楼层'**
+  String get shortcuts_goToUnreadPost;
+
+  /// No description provided for @shortcuts_jumpToPost.
+  ///
+  /// In zh, this message translates to:
+  /// **'跳转到楼层'**
+  String get shortcuts_jumpToPost;
+
+  /// No description provided for @shortcuts_bookmarkPost.
+  ///
+  /// In zh, this message translates to:
+  /// **'收藏当前帖子'**
+  String get shortcuts_bookmarkPost;
+
+  /// No description provided for @shortcuts_bookmarkTopic.
+  ///
+  /// In zh, this message translates to:
+  /// **'收藏话题'**
+  String get shortcuts_bookmarkTopic;
+
+  /// No description provided for @shortcuts_likePost.
+  ///
+  /// In zh, this message translates to:
+  /// **'点赞当前帖子'**
+  String get shortcuts_likePost;
+
   /// No description provided for @shortcuts_navigateBack.
   ///
   /// In zh, this message translates to:
@@ -8860,6 +8908,12 @@ abstract class AppLocalizations {
   /// **'打开设置'**
   String get shortcuts_openSettings;
 
+  /// No description provided for @shortcuts_post.
+  ///
+  /// In zh, this message translates to:
+  /// **'帖子'**
+  String get shortcuts_post;
+
   /// No description provided for @shortcuts_previousItem.
   ///
   /// In zh, this message translates to:
@@ -8884,6 +8938,18 @@ abstract class AppLocalizations {
   /// **'刷新'**
   String get shortcuts_refresh;
 
+  /// No description provided for @shortcuts_replyPost.
+  ///
+  /// In zh, this message translates to:
+  /// **'回复当前帖子'**
+  String get shortcuts_replyPost;
+
+  /// No description provided for @shortcuts_replyTopic.
+  ///
+  /// In zh, this message translates to:
+  /// **'回复话题'**
+  String get shortcuts_replyTopic;
+
   /// No description provided for @shortcuts_resetAll.
   ///
   /// In zh, this message translates to:
@@ -8895,6 +8961,24 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'恢复默认'**
   String get shortcuts_resetOne;
+
+  /// No description provided for @shortcuts_quotePost.
+  ///
+  /// In zh, this message translates to:
+  /// **'引用当前帖子'**
+  String get shortcuts_quotePost;
+
+  /// No description provided for @shortcuts_sharePost.
+  ///
+  /// In zh, this message translates to:
+  /// **'分享当前帖子'**
+  String get shortcuts_sharePost;
+
+  /// No description provided for @shortcuts_shareTopic.
+  ///
+  /// In zh, this message translates to:
+  /// **'分享话题'**
+  String get shortcuts_shareTopic;
 
   /// No description provided for @shortcuts_showHelp.
   ///
@@ -8931,6 +9015,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'通知面板'**
   String get shortcuts_toggleNotifications;
+
+  /// No description provided for @shortcuts_topic.
+  ///
+  /// In zh, this message translates to:
+  /// **'话题'**
+  String get shortcuts_topic;
 
   /// No description provided for @download_alreadyInProgress.
   ///

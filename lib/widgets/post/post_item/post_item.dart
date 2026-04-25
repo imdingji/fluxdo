@@ -24,6 +24,7 @@ class PostItem extends ConsumerStatefulWidget {
   final void Function(int postId)? onRefreshPost;
   final void Function(int postNumber)? onJumpToPost;
   final void Function(int postId, bool accepted)? onSolutionChanged;
+  final bool selected;
   final bool highlight;
   final bool isTopicOwner;
   final bool topicHasAcceptedAnswer;
@@ -49,6 +50,7 @@ class PostItem extends ConsumerStatefulWidget {
     this.onRefreshPost,
     this.onJumpToPost,
     this.onSolutionChanged,
+    this.selected = false,
     this.highlight = false,
     this.highlightBoostUsername,
     this.isTopicOwner = false,
@@ -93,12 +95,13 @@ class _PostItemState extends ConsumerState<PostItem> {
     final theme = Theme.of(context);
 
     if (post.postType == PostTypes.smallAction) {
-      return SmallActionItem(post: post);
+      return SmallActionItem(post: post, selected: widget.selected);
     }
 
     final isModeratorAction = post.postType == PostTypes.moderatorAction;
     return PostSegmentFrame(
       post: post,
+      selected: widget.selected,
       highlight: widget.highlight,
       constraints: const BoxConstraints(minHeight: 80),
       showTopDateSeparator: widget.dateSeparatorLabel != null,
@@ -135,19 +138,25 @@ class _PostItemState extends ConsumerState<PostItem> {
             Container(
               decoration: isModeratorAction
                   ? BoxDecoration(
-                      color: theme.colorScheme.tertiaryContainer.withValues(alpha: 0.2),
+                      color: theme.colorScheme.tertiaryContainer.withValues(
+                        alpha: 0.2,
+                      ),
                       borderRadius: BorderRadius.circular(8),
                     )
                   : null,
-              padding: isModeratorAction ? const EdgeInsets.all(12) : EdgeInsets.zero,
+              padding: isModeratorAction
+                  ? const EdgeInsets.all(12)
+                  : EdgeInsets.zero,
               child: Listener(
                 behavior: HitTestBehavior.translucent,
-                onPointerDown: (_) => CodeSelectionContextTracker.instance.clear(),
+                onPointerDown: (_) =>
+                    CodeSelectionContextTracker.instance.clear(),
                 child: ChunkedHtmlContent(
                   html: post.cooked,
                   textStyle: theme.textTheme.bodyMedium?.copyWith(
                     height: 1.5,
-                    fontSize: (theme.textTheme.bodyMedium?.fontSize ?? 14) *
+                    fontSize:
+                        (theme.textTheme.bodyMedium?.fontSize ?? 14) *
                         ref.watch(preferencesProvider).contentFontScale,
                   ),
                   linkCounts: post.linkCounts,
@@ -195,7 +204,9 @@ class _PostItemState extends ConsumerState<PostItem> {
               ),
             ),
             // 举报隐藏帖子：显示展开按钮
-            if (post.cookedHidden && post.canSeeHiddenPost && widget.onExpandHiddenPost != null)
+            if (post.cookedHidden &&
+                post.canSeeHiddenPost &&
+                widget.onExpandHiddenPost != null)
               SelectionContainer.disabled(
                 child: Padding(
                   padding: const EdgeInsets.only(top: 8),
@@ -203,7 +214,10 @@ class _PostItemState extends ConsumerState<PostItem> {
                     onTap: () => widget.onExpandHiddenPost!(post.id),
                     borderRadius: BorderRadius.circular(6),
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 4,
+                        horizontal: 8,
+                      ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [

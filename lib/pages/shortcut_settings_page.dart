@@ -19,6 +19,7 @@ class ShortcutSettingsPage extends ConsumerWidget {
       title: l10n.settings_shortcuts,
       groupsBuilder: buildShortcutGroups,
       highlightId: highlightId,
+      maxContentWidth: 860,
       actions: [
         IconButton(
           icon: const Icon(Icons.restore_rounded),
