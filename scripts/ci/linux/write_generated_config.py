@@ -7,7 +7,12 @@ import sys
 from pathlib import Path
 
 
-VERSION_PATTERN = re.compile(r"^version:\s*([0-9]+)\.([0-9]+)\.([0-9]+)(?:\+([^\s#]+))?\s*$")
+VERSION_PATTERN = re.compile(
+    r"^version:\s*"
+    r"([0-9]+)\.([0-9]+)\.([0-9]+)"
+    r"(?:-([0-9A-Za-z.-]+))?"
+    r"(?:\+([^\s#]+))?\s*$"
+)
 
 
 def parse_version(pubspec_path: Path) -> tuple[str, int, int, int, int]:
@@ -19,14 +24,17 @@ def parse_version(pubspec_path: Path) -> tuple[str, int, int, int, int]:
         major = int(match.group(1))
         minor = int(match.group(2))
         patch = int(match.group(3))
-        build_suffix = match.group(4)
+        prerelease_suffix = match.group(4)
+        build_suffix = match.group(5)
         version = f"{major}.{minor}.{patch}"
+        if prerelease_suffix:
+            version = f"{version}-{prerelease_suffix}"
 
         build_number = 0
         if build_suffix:
-          version = f"{version}+{build_suffix}"
-          if build_suffix.isdigit():
-              build_number = int(build_suffix)
+            version = f"{version}+{build_suffix}"
+            if build_suffix.isdigit():
+                build_number = int(build_suffix)
 
         return version, major, minor, patch, build_number
 
