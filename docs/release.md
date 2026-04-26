@@ -74,6 +74,9 @@ just release
 # 日常修复发版
 just release patch
 
+# 跳过 analyze 和 test，直接进入版本提交/tag 流程
+just release -- patch --skip-analyze --skip-test -y
+
 # 新增功能发版
 just release minor
 

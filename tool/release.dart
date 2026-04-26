@@ -85,7 +85,12 @@ Future<void> main(List<String> args) async {
   await runOrExit(
     title: '执行发版前检查',
     executable: Platform.resolvedExecutable,
-    arguments: const ['tool/project_tasks.dart', 'release:prepare'],
+    arguments: [
+      'tool/project_tasks.dart',
+      'release:prepare',
+      if (options.skipAnalyze) '--skip-analyze',
+      if (options.skipTest) '--skip-test',
+    ],
   );
 
   stdout.writeln('==> 更新 pubspec.yaml...');
@@ -203,6 +208,8 @@ Future<_ReleaseOptions> _resolveReleaseOptions(
       preid: interactive.preid,
       yes: options.yes,
       dryRun: interactive.dryRun,
+      skipAnalyze: options.skipAnalyze,
+      skipTest: options.skipTest,
       track: interactive.track,
       showHelp: false,
     );
@@ -224,6 +231,8 @@ _ReleaseOptions _parseArgs(List<String> args) {
   var track = _ReleaseTrack.any;
   var yes = false;
   var dryRun = false;
+  var skipAnalyze = false;
+  var skipTest = false;
   var showHelp = false;
 
   for (var index = 0; index < args.length; index++) {
@@ -239,6 +248,12 @@ _ReleaseOptions _parseArgs(List<String> args) {
         continue;
       case '--dry-run':
         dryRun = true;
+        continue;
+      case '--skip-analyze':
+        skipAnalyze = true;
+        continue;
+      case '--skip-test':
+        skipTest = true;
         continue;
       case '--track':
         if (index + 1 >= args.length) {
@@ -278,6 +293,8 @@ _ReleaseOptions _parseArgs(List<String> args) {
     preid: preid == null || preid.isEmpty ? null : preid,
     yes: yes,
     dryRun: dryRun,
+    skipAnalyze: skipAnalyze,
+    skipTest: skipTest,
     track: track,
     showHelp: showHelp,
   );
@@ -786,6 +803,8 @@ releaseType:
   --preid <id>   指定预发布标识，默认 beta
   -y, --yes      跳过最终确认
   --dry-run      只计算版本并打印，不执行写入和推送
+  --skip-analyze 跳过 flutter analyze
+  --skip-test    跳过 flutter test
 
 不传版本参数时:
   进入交互式选择流程
@@ -797,6 +816,8 @@ class _ReleaseOptions {
     required this.preid,
     required this.yes,
     required this.dryRun,
+    required this.skipAnalyze,
+    required this.skipTest,
     required this.track,
     required this.showHelp,
   });
@@ -805,6 +826,8 @@ class _ReleaseOptions {
   final String? preid;
   final bool yes;
   final bool dryRun;
+  final bool skipAnalyze;
+  final bool skipTest;
   final _ReleaseTrack track;
   final bool showHelp;
 }
