@@ -188,7 +188,7 @@ class DohProxyFfi {
         // iOS uses static linking, so we use the process itself
         return DynamicLibrary.process();
       } else if (Platform.isWindows) {
-        return DynamicLibrary.open('doh_proxy.dll');
+        return _loadWindowsLibrary();
       } else if (Platform.isMacOS) {
         return _loadMacOSLibrary();
       } else if (Platform.isLinux) {
@@ -201,28 +201,45 @@ class DohProxyFfi {
     return null;
   }
 
+  DynamicLibrary? _loadWindowsLibrary() {
+    const libName = 'doh_proxy.dll';
+    final execPath = Platform.resolvedExecutable;
+    final execDir = File(execPath).parent.path;
+    final projectRoot = _projectRootFromBuildPath(execPath);
+    final candidates = <String>[
+      '$execDir/native/$libName',
+      if (projectRoot != null) '$projectRoot/windows/runner/native/$libName',
+      if (projectRoot != null) '$projectRoot/core/doh_proxy/target/release/$libName',
+      if (projectRoot != null) '$projectRoot/core/doh_proxy/target/debug/$libName',
+      '${Directory.current.path}/windows/runner/native/$libName',
+      '${Directory.current.path}/core/doh_proxy/target/release/$libName',
+      '${Directory.current.path}/core/doh_proxy/target/debug/$libName',
+    ];
+
+    for (final path in candidates) {
+      if (File(path).existsSync()) {
+        debugPrint('[DOH FFI] 加载 Windows 库: $path');
+        return DynamicLibrary.open(path);
+      }
+    }
+
+    return DynamicLibrary.open(libName);
+  }
+
   DynamicLibrary? _loadMacOSLibrary() {
     const libName = 'libdoh_proxy.dylib';
     final execPath = Platform.resolvedExecutable;
     final execDir = File(execPath).parent.path;
-    // Platform.resolvedExecutable 在 macOS 指向 fluxdo.app/Contents/MacOS/fluxdo
-    // dylib 位于 fluxdo.app/Contents/Frameworks/libdoh_proxy.dylib
+    final projectRoot = _projectRootFromBuildPath(execPath);
     final candidates = <String>[
       '$execDir/../Frameworks/$libName',
-      // 开发时：从 app bundle 路径反推项目根目录
-      // build/macos/Build/Products/Debug/fluxdo.app/Contents/MacOS/ → 项目根
-      ...() {
-        // 尝试在路径中找到 /build/macos/ 来定位项目根目录
-        final buildIdx = execPath.indexOf('/build/macos/');
-        if (buildIdx > 0) {
-          final projectRoot = execPath.substring(0, buildIdx);
-          return [
-            '$projectRoot/core/doh_proxy/target/release/$libName',
-            '$projectRoot/core/doh_proxy/target/debug/$libName',
-          ];
-        }
-        return <String>[];
-      }(),
+      '$execDir/../Resources/native/$libName',
+      if (projectRoot != null) '$projectRoot/macos/Runner/native/$libName',
+      if (projectRoot != null) '$projectRoot/core/doh_proxy/target/release/$libName',
+      if (projectRoot != null) '$projectRoot/core/doh_proxy/target/debug/$libName',
+      '${Directory.current.path}/macos/Runner/native/$libName',
+      '${Directory.current.path}/core/doh_proxy/target/release/$libName',
+      '${Directory.current.path}/core/doh_proxy/target/debug/$libName',
     ];
     for (final path in candidates) {
       if (File(path).existsSync()) {
@@ -232,6 +249,15 @@ class DohProxyFfi {
     }
     // 最后尝试系统搜索路径
     return DynamicLibrary.open(libName);
+  }
+
+  String? _projectRootFromBuildPath(String execPath) {
+    final normalized = execPath.replaceAll('\\', '/');
+    final buildIndex = normalized.indexOf('/build/');
+    if (buildIndex <= 0) {
+      return null;
+    }
+    return normalized.substring(0, buildIndex);
   }
 
   /// 最近一次初始化失败的原因

@@ -59,47 +59,45 @@ FluxDO 是为 [Linux.do](https://linux.do/) 社区打造的现代化移动和桌
    cd fluxdo
    ```
 
-2. **安装 Flutter 依赖**
+2. **初始化工作区**
    ```bash
-   flutter pub get
+   melos bootstrap
    ```
+   如果没有安装全局 `melos`，可改用 `dart run melos bootstrap`。
+   这一步只负责 workspace 依赖和链接初始化。
 
-3. **生成多语言文件**
+3. **安装 `just`**
+   - Windows：`winget install --id Casey.Just --exact`
+   - Windows：`scoop install just`
+   - Windows：`choco install just`
+   - 通用：`cargo install just`
+
+4. **同步项目状态**
    ```bash
-   dart run tool/merge_l10n.dart
+   just sync
    ```
-
-4. **编译 Rust DOH 代理**（可选，用于网络加速）
-
-   桌面平台：
-   ```bash
-   # Windows
-   .\scripts\build_desktop.ps1
-
-   # macOS/Linux
-   ./scripts/build_desktop.sh
-   ```
-
-   Android 平台：
-   ```bash
-   # Windows
-   .\scripts\build_android.ps1
-
-   # macOS/Linux
-   ./scripts/build_android.sh
-   ```
+   这一步会统一完成 `flutter pub get`、l10n 生成和代理证书资源同步。
 
 5. **运行应用**
    ```bash
-   # Android
-   flutter run --dart-define=cronetHttpNoPlay=true
-
-   # Windows
-   flutter run -d windows
-
-   # macOS
-   flutter run -d macos
+   just run -- -d windows
+   just run -- -d macos
+   just run -- --dart-define=cronetHttpNoPlay=true
    ```
+
+   如果你不想安装 `just`，也可以直接调用 Dart 入口：
+   ```bash
+   dart run tool/project_prep.dart app
+   dart run tool/flutterw.dart run -d windows
+   ```
+
+## 开发
+
+开发相关的工程化细节已经拆到独立文档，根 README 只保留最短路径。
+
+- [开发环境与日常命令](docs/development.md)
+- [发版与 iOS IPA](docs/release.md)
+- [Flatpak 打包说明](docs/flatpak.md)
 
 ## 项目结构
 
@@ -120,7 +118,8 @@ fluxdo/
 ├── core/
 │   └── doh_proxy/           # Rust DOH 代理实现
 ├── packages/                # 本地依赖包
-├── scripts/                 # 构建脚本
+├── scripts/
+│   └── ci/                  # CI / 打包链路内部脚本
 └── pubspec.yaml
 ```
 
@@ -167,3 +166,9 @@ FluxDO 集成了基于 Rust 的 DOH (DNS over HTTPS) 代理，提供：
 ## 致谢
 
 感谢 [Linux.do](https://linux.do/) 社区的所有成员，是你们的真诚、友善、团结、专业让这个社区充满活力。
+
+## 相关文档
+
+- [开发环境与日常命令](docs/development.md)
+- [Flatpak 打包说明](docs/flatpak.md)
+- [发版与 iOS IPA](docs/release.md)

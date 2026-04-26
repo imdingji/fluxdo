@@ -9,7 +9,7 @@ on:
       - '.github/workflows/flatpak-wpe-layer.yaml'
       - 'flatpak/com.github.lingyan000.fluxdo.wpe-layer.yml'
       - 'flatpak/wpe-layer.version'
-      - 'scripts/ci/package_flatpak_wpe_layer.sh'
+      - 'scripts/ci/flatpak/package_wpe_layer.sh'
 
 jobs:
   build_wpe_layer:
@@ -47,7 +47,7 @@ jobs:
       - name: Package WPE layer
         run: |
           mkdir -p dist
-          bash scripts/ci/package_flatpak_wpe_layer.sh \
+          bash scripts/ci/flatpak/package_wpe_layer.sh \
             flatpak_wpe_layer \
             dist/fluxdo-flatpak-wpe-layer-gnome48-x86_64.tar.zst
 

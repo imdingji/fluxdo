@@ -296,7 +296,7 @@ void _showLanguagePicker(
   );
 }
 
-String _localeLabel(dynamic l10n, Locale? locale) {
+String _localeLabel(AppLocalizations l10n, Locale? locale) {
   if (locale == null) return l10n.appearance_languageSystem;
   switch ('${locale.languageCode}_${locale.countryCode}') {
     case 'zh_CN':

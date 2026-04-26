@@ -116,6 +116,11 @@ foreach(bundled_library ${PLUGIN_BUNDLED_LIBRARIES})
     COMPONENT Runtime)
 endforeach(bundled_library)
 
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/runner/native/"
+  DESTINATION "${CMAKE_INSTALL_PREFIX}/native"
+  COMPONENT Runtime
+  PATTERN ".keep" EXCLUDE)
+
 # Copy the native assets provided by the build.dart from all packages.
 set(NATIVE_ASSETS_DIR "${PROJECT_BUILD_DIR}native_assets/linux/")
 install(DIRECTORY "${NATIVE_ASSETS_DIR}"

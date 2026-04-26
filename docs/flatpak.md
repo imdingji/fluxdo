@@ -64,16 +64,16 @@ CI 分成三部分：
 - `flatpak/com.github.lingyan000.fluxdo.wpe-layer.yml`
 - `flatpak/wpe-layer.version`
 - `linux/CMakeLists.txt`
-- `scripts/ci/prepare_flatpak_source_tree.sh`
-- `scripts/ci/patch_staged_flutter_sdk.sh`
-- `scripts/ci/refresh_pub_advisories_cache.py`
-- `scripts/ci/rebuild_linux_plugin_symlinks.py`
-- `scripts/ci/write_linux_generated_config.py`
-- `scripts/ci/build_flatpak_app.sh`
-- `scripts/ci/package_flatpak_wpe_layer.sh`
-- `scripts/ci/list_linux_rust_manifests.py`
-- `scripts/ci/patch_linux_plugins.sh`
-- `scripts/ci/run_flatpak_package_locally.sh`
+- `scripts/ci/flatpak/prepare_source_tree.sh`
+- `scripts/ci/flatpak/patch_staged_flutter_sdk.sh`
+- `scripts/ci/flatpak/refresh_pub_advisories_cache.py`
+- `scripts/ci/flatpak/rebuild_linux_plugin_symlinks.py`
+- `scripts/ci/linux/write_generated_config.py`
+- `scripts/ci/flatpak/build_app.sh`
+- `scripts/ci/flatpak/package_wpe_layer.sh`
+- `scripts/ci/linux/list_rust_manifests.py`
+- `scripts/ci/linux/patch_plugins.sh`
+- `scripts/ci/flatpak/run_local_package.sh`
 
 ## 本地调试
 
@@ -84,13 +84,13 @@ CI 分成三部分：
 推荐直接跑仓库内脚本，这条路径比 `act` 更接近实际的 `flatpak_package` job：
 
 ```bash
-bash scripts/ci/run_flatpak_package_locally.sh
+bash scripts/ci/flatpak/run_local_package.sh
 ```
 
 如果只想复用已经准备好的 `.artifacts/flatpak/fluxdo-flatpak-source-tree.tar.gz`，可以跳过 prepare：
 
 ```bash
-SKIP_PREPARE=1 bash scripts/ci/run_flatpak_package_locally.sh
+SKIP_PREPARE=1 bash scripts/ci/flatpak/run_local_package.sh
 ```
 
 如果要手动拆开跑，命令如下：
@@ -101,7 +101,7 @@ SKIP_PREPARE=1 bash scripts/ci/run_flatpak_package_locally.sh
 
 ```bash
 export PUB_CACHE="$PWD/.pub-cache"
-bash scripts/ci/prepare_flatpak_source_tree.sh
+bash scripts/ci/flatpak/prepare_source_tree.sh
 rm -rf flatpak/stage/source-tree
 mkdir -p flatpak/stage/source-tree
 tar -xzf .artifacts/flatpak/fluxdo-flatpak-source-tree.tar.gz -C flatpak/stage/source-tree
@@ -129,7 +129,7 @@ flatpak run --command=pkg-config org.gnome.Sdk//48 --modversion libsecret-1
 ```bash
 LOCAL_WPE_LAYER_ARCHIVE=/path/to/fluxdo-flatpak-wpe-layer-gnome48-x86_64.tar.zst \
 SKIP_PREPARE=1 \
-bash scripts/ci/run_flatpak_package_locally.sh
+bash scripts/ci/flatpak/run_local_package.sh
 ```
 
 如果要验证预编译依赖层已经被主 manifest 正确安装到 app build root，可以在 Flatpak 构建结束后检查：

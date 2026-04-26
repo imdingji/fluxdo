@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../l10n/app_localizations.dart';
 import '../../../l10n/s.dart';
 import '../../../services/network/doh_proxy/per_device_cert_service.dart';
 import '../../../services/toast_service.dart';

@@ -5,7 +5,6 @@ import 'package:catcher_2/catcher_2.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'l10n/app_localizations.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
@@ -274,6 +273,9 @@ Future<void> main() async {
     AiL10n.configureLocale(
       Locale(parts[0], parts.length > 1 ? parts[1] : null),
     );
+    await LocaleSettings.setLocaleRaw(savedLocale);
+  } else {
+    await LocaleSettings.useDeviceLocale();
   }
 
   // 过滤 Flutter 框架已知 bug（https://github.com/flutter/flutter/issues/115787）
@@ -333,6 +335,9 @@ class MainApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeState = ref.watch(themeProvider);
+    ref.listen<Locale?>(localeProvider, (_, next) {
+      unawaited(_syncSlangLocale(next));
+    });
 
     return DynamicColorBuilder(
       builder: (lightDynamic, darkDynamic) {
@@ -373,107 +378,122 @@ class MainApp extends ConsumerWidget {
           );
         }
 
-        return MaterialApp(
-          navigatorKey: navigatorKey,
-          navigatorObservers: [appRouteObserver],
-          title: 'FluxDO',
-          locale: ref.watch(localeProvider),
-          localizationsDelegates: const [
-            AppLocalizations.delegate,
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-          ],
-          supportedLocales: AppLocalizations.supportedLocales,
-          themeMode: themeState.mode,
-          theme: ThemeData(
-            colorScheme: lightScheme,
-            useMaterial3: true,
-            fontFamily: themeState.fontFamilyName,
-            cardTheme: CardThemeData(
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              color: lightScheme.surfaceContainerLow,
-              margin: EdgeInsets.zero,
-            ),
-          ),
-          darkTheme: ThemeData(
-            colorScheme: darkScheme,
-            useMaterial3: true,
-            fontFamily: themeState.fontFamilyName,
-            cardTheme: CardThemeData(
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              color: darkScheme.surfaceContainerLow,
-              margin: EdgeInsets.zero,
-            ),
-          ),
-          builder: (context, child) {
-            final brightness = Theme.of(context).brightness;
-            final iconBrightness = brightness == Brightness.light
-                ? Brightness.dark
-                : Brightness.light;
-            // 桌面平台：跟随应用主题明暗切换窗口效果
-            if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
-              final isDark = brightness == Brightness.dark;
-              acrylic.Window.setEffect(
-                effect: Platform.isMacOS
-                    ? acrylic.WindowEffect.sidebar
-                    : Platform.isWindows
-                        ? acrylic.WindowEffect.mica
-                        : acrylic.WindowEffect.disabled,
-                dark: isDark,
-              );
-              if (Platform.isMacOS) {
-                acrylic.Window.overrideMacOSBrightness(dark: isDark);
-              }
-            }
-            Widget result = AnnotatedRegion<SystemUiOverlayStyle>(
-              value: SystemUiOverlayStyle(
-                statusBarColor: Colors.transparent,
-                statusBarIconBrightness: iconBrightness,
-                systemNavigationBarIconBrightness: iconBrightness,
-                systemNavigationBarColor: Colors.transparent,
-                // Android 28 上 dividerColor 不能完全透明，用 withAlpha(1) 兼容
-                systemNavigationBarDividerColor: Colors.transparent.withAlpha(
-                  1,
+        return TranslationProvider(
+          child: Builder(
+            builder: (context) => MaterialApp(
+              navigatorKey: navigatorKey,
+              navigatorObservers: [appRouteObserver],
+              title: 'FluxDO',
+              locale: TranslationProvider.of(context).flutterLocale,
+              localizationsDelegates: const [
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              supportedLocales: AppLocaleUtils.supportedLocales,
+              themeMode: themeState.mode,
+              theme: ThemeData(
+                colorScheme: lightScheme,
+                useMaterial3: true,
+                fontFamily: themeState.fontFamilyName,
+                cardTheme: CardThemeData(
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  color: lightScheme.surfaceContainerLow,
+                  margin: EdgeInsets.zero,
                 ),
-                // 关闭系统自动 scrim，实现完全沉浸
-                systemNavigationBarContrastEnforced: false,
               ),
-              child: Stack(
-                fit: StackFit.passthrough,
-                children: [child!, const ReadLaterBubble()],
+              darkTheme: ThemeData(
+                colorScheme: darkScheme,
+                useMaterial3: true,
+                fontFamily: themeState.fontFamilyName,
+                cardTheme: CardThemeData(
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  color: darkScheme.surfaceContainerLow,
+                  margin: EdgeInsets.zero,
+                ),
               ),
-            );
-
-            // 桌面端：全局鼠标返回键 + 键盘快捷键（HardwareKeyboard）
-            if (PlatformUtils.isDesktop) {
-              result = Listener(
-                onPointerDown: (event) {
-                  // 鼠标侧键返回（第 4 按钮，bit flag 0x08）
-                  if (event.buttons & 0x08 != 0) {
-                    navigatorKey.currentState?.maybePop();
+              builder: (context, child) {
+                final brightness = Theme.of(context).brightness;
+                final iconBrightness = brightness == Brightness.light
+                    ? Brightness.dark
+                    : Brightness.light;
+                // 桌面平台：跟随应用主题明暗切换窗口效果
+                if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
+                  final isDark = brightness == Brightness.dark;
+                  acrylic.Window.setEffect(
+                    effect: Platform.isMacOS
+                        ? acrylic.WindowEffect.sidebar
+                        : Platform.isWindows
+                            ? acrylic.WindowEffect.mica
+                            : acrylic.WindowEffect.disabled,
+                    dark: isDark,
+                  );
+                  if (Platform.isMacOS) {
+                    acrylic.Window.overrideMacOSBrightness(dark: isDark);
                   }
-                },
-                child: KeyboardShortcutHandler(
-                  navigatorKey: navigatorKey,
-                  child: result,
-                ),
-              );
-            }
+                }
+                Widget result = AnnotatedRegion<SystemUiOverlayStyle>(
+                  value: SystemUiOverlayStyle(
+                    statusBarColor: Colors.transparent,
+                    statusBarIconBrightness: iconBrightness,
+                    systemNavigationBarIconBrightness: iconBrightness,
+                    systemNavigationBarColor: Colors.transparent,
+                    // Android 28 上 dividerColor 不能完全透明，用 withAlpha(1) 兼容
+                    systemNavigationBarDividerColor: Colors.transparent.withAlpha(
+                      1,
+                    ),
+                    // 关闭系统自动 scrim，实现完全沉浸
+                    systemNavigationBarContrastEnforced: false,
+                  ),
+                  child: Stack(
+                    fit: StackFit.passthrough,
+                    children: [child!, const ReadLaterBubble()],
+                  ),
+                );
 
-            return result;
-          },
-          home: const OnboardingGate(child: PreheatGate(child: MainPage())),
+                // 桌面端：全局鼠标返回键 + 键盘快捷键（HardwareKeyboard）
+                if (PlatformUtils.isDesktop) {
+                  result = Listener(
+                    onPointerDown: (event) {
+                      // 鼠标侧键返回（第 4 按钮，bit flag 0x08）
+                      if (event.buttons & 0x08 != 0) {
+                        navigatorKey.currentState?.maybePop();
+                      }
+                    },
+                    child: KeyboardShortcutHandler(
+                      navigatorKey: navigatorKey,
+                      child: result,
+                    ),
+                  );
+                }
+
+                return result;
+              },
+              home: const OnboardingGate(child: PreheatGate(child: MainPage())),
+            ),
+          ),
         );
       },
     );
   }
+}
+
+Future<void> _syncSlangLocale(Locale? locale) async {
+  if (locale == null) {
+    await LocaleSettings.useDeviceLocale();
+    return;
+  }
+
+  final rawLocale = locale.countryCode?.isNotEmpty == true
+      ? '${locale.languageCode}_${locale.countryCode}'
+      : locale.languageCode;
+  await LocaleSettings.setLocaleRaw(rawLocale);
 }
 
 class MainPage extends ConsumerStatefulWidget {

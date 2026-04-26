@@ -459,17 +459,27 @@ class DohProxyService {
 
     // 查找可执行文件的可能位置
     final execPath = Platform.resolvedExecutable;
+    final execDir = p.dirname(execPath);
     final possiblePaths = <String>[
       // 打包后：与应用程序同目录
-      p.join(p.dirname(execPath), executableName),
+      p.join(execDir, executableName),
+      // 打包后：桌面平台统一收口到 native 子目录
+      p.join(execDir, 'native', executableName),
+      if (Platform.isMacOS) p.join(execDir, '..', 'Resources', 'native', executableName),
       // 打包后：assets 目录
-      p.join(p.dirname(execPath), 'data', 'flutter_assets', 'assets', executableName),
+      p.join(execDir, 'data', 'flutter_assets', 'assets', executableName),
       // 开发时：通过 app bundle 路径反推项目根目录
       ...() {
         final buildIdx = execPath.indexOf('${p.separator}build${p.separator}');
         if (buildIdx > 0) {
           final projectRoot = execPath.substring(0, buildIdx);
           return [
+            if (Platform.isWindows)
+              p.join(projectRoot, 'windows', 'runner', 'native', executableName),
+            if (Platform.isMacOS)
+              p.join(projectRoot, 'macos', 'Runner', 'native', executableName),
+            if (Platform.isLinux)
+              p.join(projectRoot, 'linux', 'runner', 'native', executableName),
             p.join(projectRoot, 'core', 'doh_proxy', 'target', 'release', executableName),
             p.join(projectRoot, 'core', 'doh_proxy', 'target', 'debug', executableName),
           ];
@@ -477,6 +487,12 @@ class DohProxyService {
         return <String>[];
       }(),
       // 开发时：CWD 可能是项目根目录
+      if (Platform.isWindows)
+        p.join(Directory.current.path, 'windows', 'runner', 'native', executableName),
+      if (Platform.isMacOS)
+        p.join(Directory.current.path, 'macos', 'Runner', 'native', executableName),
+      if (Platform.isLinux)
+        p.join(Directory.current.path, 'linux', 'runner', 'native', executableName),
       p.join(Directory.current.path, 'core', 'doh_proxy', 'target', 'release', executableName),
       p.join(Directory.current.path, 'core', 'doh_proxy', 'target', 'debug', executableName),
     ];

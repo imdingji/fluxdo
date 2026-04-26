@@ -1,0 +1,6 @@
+// Copy this file to apple/Local.xcconfig and fill in your local Apple Team ID.
+//
+// This file is intentionally ignored by git so each developer can keep
+// personal signing settings out of the shared Xcode project files.
+
+FLUXDO_APPLE_DEVELOPMENT_TEAM = YOUR_TEAM_ID

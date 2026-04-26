@@ -94,58 +94,24 @@ jobs:
           echo "${{ secrets.ANDROID_KEY_PROPERTIES }}" > android/key.properties
           echo "${{ secrets.GOOGLE_SERVICES_JSON }}" | base64 -d > android/app/google-services.json
 
-      - name: Generate CA certificates
-        if: startsWith(matrix.platform, 'android') || matrix.platform == 'macos' || matrix.platform == 'ios' || matrix.platform == 'windows'
-        working-directory: core/doh_proxy
-        run: cargo run --bin gen_ca
-
-      - name: Build DOH Proxy
-        if: startsWith(matrix.platform, 'android')
-        working-directory: core/doh_proxy
-        env:
-          ANDROID_NDK_HOME: ${{ env.ANDROID_SDK_ROOT }}/ndk/25.2.9519653
-        run: cargo ndk -t ${{ matrix.arch }} --platform 28 build --release --features ech
-
-      - name: Copy native libraries
-        if: startsWith(matrix.platform, 'android')
-        run: |
-          mkdir -p android/app/src/main/jniLibs/${{ matrix.arch }}
-          cp core/doh_proxy/target/${{ matrix.rust-target }}/release/libdoh_proxy.so android/app/src/main/jniLibs/${{ matrix.arch }}/
-          mkdir -p android/app/src/main/res/raw
-          cp core/doh_proxy/certs/ca.der android/app/src/main/res/raw/proxy_ca.der
-
       - name: Configure Git for CocoaPods
         if: matrix.platform == 'ios' || matrix.platform == 'macos'
         run: git config --global url."https://x-access-token:${{ github.token }}@github.com/".insteadOf "https://github.com/"
 
-      - name: Generate l10n
-        run: bash scripts/gen_l10n.sh --merge
-
-      - name: Get dependencies
-        run: flutter pub get
-
       - name: Build Android
         if: startsWith(matrix.platform, 'android')
         run: |
-          flutter build apk --release --target-platform ${{ matrix.flutter-target }} --dart-define=cronetHttpNoPlay=true
+          dart tool/flutterw.dart build apk --release --target-platform ${{ matrix.flutter-target }} --dart-define=cronetHttpNoPlay=true
+          unzip -l build/app/outputs/flutter-apk/app-release.apk | grep "lib/${{ matrix.arch }}/libdoh_proxy.so"
+          unzip -l build/app/outputs/flutter-apk/app-release.apk | grep "res/raw/proxy_ca.der"
           mkdir -p dist
           mv build/app/outputs/flutter-apk/app-release.apk dist/fluxdo-${{ matrix.arch }}.apk
-
-      - name: Build DOH Proxy for iOS
-        if: matrix.platform == 'ios'
-        working-directory: core/doh_proxy
-        run: cargo rustc --release --target aarch64-apple-ios --features ech --lib --crate-type staticlib
-
-      - name: Copy iOS native libraries
-        if: matrix.platform == 'ios'
-        run: |
-          mkdir -p ios/rust_libs/device
-          cp core/doh_proxy/target/aarch64-apple-ios/release/libdoh_proxy.a ios/rust_libs/device/
 
       - name: Build iOS
         if: matrix.platform == 'ios'
         run: |
-          flutter build ios --release --no-codesign
+          dart tool/flutterw.dart build ios --release --no-codesign
+          nm -gU build/ios/iphoneos/Runner.app/Runner | grep "_doh_proxy_start_with_config_json"
           mkdir -p dist
           cd build/ios/iphoneos
           mkdir Payload
@@ -157,27 +123,15 @@ jobs:
         if: matrix.platform == 'macos'
         run: npm install -g appdmg
 
-      - name: Build DOH Proxy for macOS
-        if: matrix.platform == 'macos'
-        working-directory: core/doh_proxy
-        run: cargo build --release --features ech
-
-      - name: Copy macOS native libraries
-        if: matrix.platform == 'macos'
-        run: |
-          mkdir -p macos/Runner/Resources
-          cp core/doh_proxy/target/release/libdoh_proxy.dylib macos/Runner/Resources/
-          cp core/doh_proxy/certs/ca.der macos/Runner/Resources/proxy_ca.der
-
       - name: Build macOS
         if: matrix.platform == 'macos'
         run: |
-          flutter build macos --release
+          dart tool/flutterw.dart build macos --release
           mkdir -p dist
           APP_PATH="build/macos/Build/Products/Release/fluxdo.app"
-          # 将 dylib 复制到 app bundle 内
-          cp core/doh_proxy/target/release/libdoh_proxy.dylib "$APP_PATH/Contents/Frameworks/"
-          cp core/doh_proxy/certs/ca.der "$APP_PATH/Contents/Resources/proxy_ca.der"
+          test -f "$APP_PATH/Contents/Frameworks/libdoh_proxy.dylib"
+          test -f "$APP_PATH/Contents/Resources/native/doh_proxy_bin"
+          test -x "$APP_PATH/Contents/Resources/native/doh_proxy_bin"
 
       - name: Package macOS DMG
         if: matrix.platform == 'macos'
@@ -207,10 +161,11 @@ jobs:
       - name: Build Windows
         if: matrix.platform == 'windows'
         run: |
-          flutter build windows --release
+          dart tool/flutterw.dart build windows --release
+          $releaseDir = "build\\windows\\x64\\runner\\Release"
+          if (-not (Test-Path "$releaseDir\\native\\doh_proxy.dll")) { throw "Missing doh_proxy.dll" }
+          if (-not (Test-Path "$releaseDir\\native\\doh_proxy_bin.exe")) { throw "Missing doh_proxy_bin.exe" }
           mkdir dist
-          $releaseDir = "build\windows\x64\runner\Release"
-          Copy-Item "core\doh_proxy\certs\ca.der" "$releaseDir\proxy_ca.der"
 
       - name: Package Windows ZIP
         if: matrix.platform == 'windows'
@@ -251,7 +206,7 @@ jobs:
       - name: Prepare Flatpak source tree
         env:
           PUB_CACHE: ${{ github.workspace }}/.pub-cache
-        run: bash scripts/ci/prepare_flatpak_source_tree.sh
+        run: bash scripts/ci/flatpak/prepare_source_tree.sh
 
       - name: Upload Flatpak source tree artifact
         uses: actions/upload-artifact@v4
@@ -311,7 +266,7 @@ jobs:
             --verbose \
             flatpak_wpe_layer \
             flatpak/com.github.lingyan000.fluxdo.wpe-layer.yml
-          bash scripts/ci/package_flatpak_wpe_layer.sh \
+          bash scripts/ci/flatpak/package_wpe_layer.sh \
             flatpak_wpe_layer \
             dist/fluxdo-flatpak-wpe-layer-gnome48-x86_64.tar.zst
 

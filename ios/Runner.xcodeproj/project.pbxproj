@@ -194,7 +194,6 @@
 			buildConfigurationList = 97C147051CF9000F007C117D /* Build configuration list for PBXNativeTarget "Runner" */;
 			buildPhases = (
 				BAF4C9796D675D9F72672B1E /* [CP] Check Pods Manifest.lock */,
-				A1B2C3D4E5F60001 /* Copy Rust DOH Proxy */,
 				9740EEB61CF901F6004384FC /* Run Script */,
 				97C146EA1CF9000F007C117D /* Sources */,
 				97C146EB1CF9000F007C117D /* Frameworks */,
@@ -343,22 +342,6 @@
 			shellPath = /bin/sh;
 			shellScript = "/bin/sh \"$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh\" build";
 		};
-		A1B2C3D4E5F60001 /* Copy Rust DOH Proxy */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-			);
-			name = "Copy Rust DOH Proxy";
-			outputPaths = (
-				"$(BUILT_PRODUCTS_DIR)/libdoh_proxy.a",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "RUST_LIBS_DIR=\"${SRCROOT}/rust_libs\"\nif [ \"$PLATFORM_NAME\" = \"iphonesimulator\" ]; then\n  LIB_SRC=\"${RUST_LIBS_DIR}/simulator/libdoh_proxy.a\"\nelse\n  LIB_SRC=\"${RUST_LIBS_DIR}/device/libdoh_proxy.a\"\nfi\nif [ -f \"$LIB_SRC\" ]; then\n  cp \"$LIB_SRC\" \"${BUILT_PRODUCTS_DIR}/libdoh_proxy.a\"\n  echo \"Copied DOH proxy library from $LIB_SRC ($(wc -c < \"$LIB_SRC\") bytes)\"\n  # 验证库包含真实 FFI 符号\n  if ! nm \"$LIB_SRC\" 2>/dev/null | grep -q '_doh_proxy_start_with_config_json'; then\n    echo \"error: libdoh_proxy.a does not contain expected FFI symbols\"\n    exit 1\n  fi\nelse\n  if [ -n \"$CI\" ]; then\n    echo \"error: Rust DOH proxy library not found at $LIB_SRC (CI mode — placeholder not allowed)\"\n    exit 1\n  fi\n  echo \"warning: Rust DOH proxy library not found at $LIB_SRC, creating empty placeholder\"\n  PLACEHOLDER_O=\"${DERIVED_FILE_DIR}/doh_proxy_placeholder.o\"\n  FIRST_ARCH=$(echo ${ARCHS} | awk '{print $1}')\n  echo 'void _doh_proxy_placeholder(void) {}' | xcrun --sdk ${PLATFORM_NAME} clang -x c - -c -o \"$PLACEHOLDER_O\" -arch \"$FIRST_ARCH\"\n  xcrun --sdk ${PLATFORM_NAME} libtool -static -o \"${BUILT_PRODUCTS_DIR}/libdoh_proxy.a\" \"$PLACEHOLDER_O\"\nfi\n# Copy CA certificate to app bundle\nCA_SRC=\"${SRCROOT}/../core/doh_proxy/certs/ca.der\"\nif [ -f \"$CA_SRC\" ]; then\n  cp \"$CA_SRC\" \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/proxy_ca.der\"\n  echo \"Copied CA certificate\"\nfi\n";
-		};
 		BAF4C9796D675D9F72672B1E /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -461,7 +444,7 @@
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Apple Development";
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
@@ -495,7 +478,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
-				DEVELOPMENT_TEAM = N6SSY9VFGK;
+				DEVELOPMENT_TEAM = "$(FLUXDO_APPLE_DEVELOPMENT_TEAM)";
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -504,8 +487,32 @@
 				);
 				OTHER_LDFLAGS = (
 					"$(inherited)",
+					"-Wl,-export_dynamic",
+					"-framework",
+					Security,
+					"-framework",
+					SystemConfiguration,
+					"-framework",
+					Network,
+					"-lresolv",
+				);
+				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
+					"$(inherited)",
 					"-force_load",
-					"$(BUILT_PRODUCTS_DIR)/libdoh_proxy.a",
+					"$(SRCROOT)/rust_libs/device/libdoh_proxy.a",
+					"-Wl,-export_dynamic",
+					"-framework",
+					Security,
+					"-framework",
+					SystemConfiguration,
+					"-framework",
+					Network,
+					"-lresolv",
+				);
+				"OTHER_LDFLAGS[sdk=iphonesimulator*]" = (
+					"$(inherited)",
+					"-force_load",
+					"$(SRCROOT)/rust_libs/simulator/libdoh_proxy.a",
 					"-Wl,-export_dynamic",
 					"-framework",
 					Security,
@@ -602,7 +609,7 @@
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Apple Development";
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -659,7 +666,7 @@
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Apple Development";
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
@@ -695,7 +702,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
-				DEVELOPMENT_TEAM = N6SSY9VFGK;
+				DEVELOPMENT_TEAM = "$(FLUXDO_APPLE_DEVELOPMENT_TEAM)";
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -704,8 +711,32 @@
 				);
 				OTHER_LDFLAGS = (
 					"$(inherited)",
+					"-Wl,-export_dynamic",
+					"-framework",
+					Security,
+					"-framework",
+					SystemConfiguration,
+					"-framework",
+					Network,
+					"-lresolv",
+				);
+				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
+					"$(inherited)",
 					"-force_load",
-					"$(BUILT_PRODUCTS_DIR)/libdoh_proxy.a",
+					"$(SRCROOT)/rust_libs/device/libdoh_proxy.a",
+					"-Wl,-export_dynamic",
+					"-framework",
+					Security,
+					"-framework",
+					SystemConfiguration,
+					"-framework",
+					Network,
+					"-lresolv",
+				);
+				"OTHER_LDFLAGS[sdk=iphonesimulator*]" = (
+					"$(inherited)",
+					"-force_load",
+					"$(SRCROOT)/rust_libs/simulator/libdoh_proxy.a",
 					"-Wl,-export_dynamic",
 					"-framework",
 					Security,
@@ -735,7 +766,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
-				DEVELOPMENT_TEAM = N6SSY9VFGK;
+				DEVELOPMENT_TEAM = "$(FLUXDO_APPLE_DEVELOPMENT_TEAM)";
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -744,8 +775,32 @@
 				);
 				OTHER_LDFLAGS = (
 					"$(inherited)",
+					"-Wl,-export_dynamic",
+					"-framework",
+					Security,
+					"-framework",
+					SystemConfiguration,
+					"-framework",
+					Network,
+					"-lresolv",
+				);
+				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
+					"$(inherited)",
 					"-force_load",
-					"$(BUILT_PRODUCTS_DIR)/libdoh_proxy.a",
+					"$(SRCROOT)/rust_libs/device/libdoh_proxy.a",
+					"-Wl,-export_dynamic",
+					"-framework",
+					Security,
+					"-framework",
+					SystemConfiguration,
+					"-framework",
+					Network,
+					"-lresolv",
+				);
+				"OTHER_LDFLAGS[sdk=iphonesimulator*]" = (
+					"$(inherited)",
+					"-force_load",
+					"$(SRCROOT)/rust_libs/simulator/libdoh_proxy.a",
 					"-Wl,-export_dynamic",
 					"-framework",
 					Security,

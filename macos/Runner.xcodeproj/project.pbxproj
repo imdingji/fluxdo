@@ -49,62 +49,6 @@
 		};
 /* End PBXContainerItemProxy section */
 
-/* Begin PBXCopyFilesBuildPhase section */
-		33CC110E2044A8840003C045 /* Bundle Framework */ = {
-            isa = PBXShellScriptBuildPhase;
-            buildActionMask = 2147483647;
-            files = (
-            );
-            inputPaths = (
-            );
-            outputPaths = (
-            );
-            runOnlyForDeploymentPostprocessing = 0;
-            shellPath = /bin/sh;
-            shellScript = "
-        # 根据构建配置选择 debug/release dylib
-        if [ \"${CONFIGURATION}\" = \"Release\" ]; then
-          SRC_LIB=\"${PROJECT_DIR}/../core/doh_proxy/target/release/libdoh_proxy.dylib\"
-        else
-          SRC_LIB=\"${PROJECT_DIR}/../core/doh_proxy/target/debug/libdoh_proxy.dylib\"
-          # debug 模式 fallback 到 release
-          if [ ! -f \"$SRC_LIB\" ]; then
-            SRC_LIB=\"${PROJECT_DIR}/../core/doh_proxy/target/release/libdoh_proxy.dylib\"
-          fi
-        fi
-
-        if [ ! -f \"$SRC_LIB\" ]; then
-          echo \"[dylib] not found, building via cargo...\"
-          sh ${PROJECT_DIR}/../scripts/build_desktop.sh
-        else
-          echo \"[dylib] found existing build: $SRC_LIB\"
-        fi
-
-        # 目标路径
-        DST_DIR=\"${BUILT_PRODUCTS_DIR}/${CONTENTS_FOLDER_PATH}/Frameworks\"
-
-        echo \"[dylib] copy from $SRC_LIB to $DST_DIR\"
-
-        mkdir -p \"$DST_DIR\"
-        cp \"$SRC_LIB\" \"$DST_DIR/\"
-
-        # 修正 install_name
-        install_name_tool -id @rpath/libdoh_proxy.dylib \"$DST_DIR/libdoh_proxy.dylib\" || true
-
-        # 签名 dylib（使用构建配置中的签名身份，CI 上通常为 ad-hoc '-'）
-        SIGN_IDENTITY=\"${EXPANDED_CODE_SIGN_IDENTITY:-\"-\"}\"
-        codesign --force --sign \"$SIGN_IDENTITY\" \"$DST_DIR/libdoh_proxy.dylib\"
-
-        SRC_CER=\"${PROJECT_DIR}/../core/doh_proxy/certs/ca.der\"
-        DST_CER_DIR=\"${BUILT_PRODUCTS_DIR}/${CONTENTS_FOLDER_PATH}/Resources\"
-        DST_CER=\"${DST_CER_DIR}/proxy_ca.der\"
-        echo \"[cer] copy from $SRC_CER to $DST_CER\"
-        mkdir -p \"$DST_CER_DIR\"
-        cp \"$SRC_CER\" \"$DST_CER\"
-        ";
-        };
-/* End PBXCopyFilesBuildPhase section */
-
 /* Begin PBXFileReference section */
 		2757FBE6F73A1167CD2D7714 /* Pods-Runner.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.release.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"; sourceTree = "<group>"; };
 		331C80D5294CF71000263BE5 /* RunnerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RunnerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -118,6 +62,7 @@
 		33CC10F72044A3C60003C045 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = Runner/Info.plist; sourceTree = "<group>"; };
 		33CC11122044BFA00003C045 /* MainFlutterWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainFlutterWindow.swift; sourceTree = "<group>"; };
 		A1B2C3D400000002000CERT0 /* DohProxyCertHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DohProxyCertHandler.swift; sourceTree = "<group>"; };
+		A1B2C3D400000003000NATIV /* native */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Runner/native; sourceTree = "<group>"; };
 		33CEB47222A05771004F2AC0 /* Flutter-Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "Flutter-Debug.xcconfig"; sourceTree = "<group>"; };
 		33CEB47422A05771004F2AC0 /* Flutter-Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "Flutter-Release.xcconfig"; sourceTree = "<group>"; };
 		33CEB47722A0578A004F2AC0 /* Flutter-Generated.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = "Flutter-Generated.xcconfig"; path = "ephemeral/Flutter-Generated.xcconfig"; sourceTree = "<group>"; };
@@ -201,6 +146,7 @@
 				33CC10F22044A3C60003C045 /* Assets.xcassets */,
 				33CC10F42044A3C60003C045 /* MainMenu.xib */,
 				33CC10F72044A3C60003C045 /* Info.plist */,
+				A1B2C3D400000003000NATIV /* native */,
 			);
 			name = Resources;
 			path = ..;
@@ -283,7 +229,7 @@
 				33CC10E92044A3C60003C045 /* Sources */,
 				33CC10EA2044A3C60003C045 /* Frameworks */,
 				33CC10EB2044A3C60003C045 /* Resources */,
-				33CC110E2044A8840003C045 /* Bundle Framework */,
+				33CC110E2044A8840003C045 /* Stage Native Runtime */,
 				3399D490228B24CF009A79C7 /* ShellScript */,
 				53A3B0C5D754DDE3F9CDEF13 /* [CP] Embed Pods Frameworks */,
 			);
@@ -368,6 +314,29 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		33CC110E2044A8840003C045 /* Stage Native Runtime */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PROJECT_DIR}/Runner/native/libdoh_proxy.dylib",
+				"${PROJECT_DIR}/Runner/native/doh_proxy_bin",
+			);
+			name = "Stage Native Runtime";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"${BUILT_PRODUCTS_DIR}/${CONTENTS_FOLDER_PATH}/Frameworks/libdoh_proxy.dylib",
+				"${BUILT_PRODUCTS_DIR}/${CONTENTS_FOLDER_PATH}/Resources/native/doh_proxy_bin",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -e\nSTAGED_DIR=\"${PROJECT_DIR}/Runner/native\"\nLIB_SRC=\"${STAGED_DIR}/libdoh_proxy.dylib\"\nBIN_SRC=\"${STAGED_DIR}/doh_proxy_bin\"\nFRAMEWORKS_DIR=\"${BUILT_PRODUCTS_DIR}/${CONTENTS_FOLDER_PATH}/Frameworks\"\nRESOURCES_NATIVE_DIR=\"${BUILT_PRODUCTS_DIR}/${CONTENTS_FOLDER_PATH}/Resources/native\"\n\nif [ ! -f \"$LIB_SRC\" ]; then\n  echo \"error: Missing staged native library: $LIB_SRC\" >&2\n  echo \"Run dart tool/project_tasks.dart native:prepare macos before building.\" >&2\n  exit 1\nfi\n\nif [ ! -f \"$BIN_SRC\" ]; then\n  echo \"error: Missing staged native executable: $BIN_SRC\" >&2\n  echo \"Run dart tool/project_tasks.dart native:prepare macos before building.\" >&2\n  exit 1\nfi\n\nmkdir -p \"$FRAMEWORKS_DIR\" \"$RESOURCES_NATIVE_DIR\"\nrm -f \"$RESOURCES_NATIVE_DIR/libdoh_proxy.dylib\"\ncp \"$LIB_SRC\" \"$FRAMEWORKS_DIR/libdoh_proxy.dylib\"\ncp \"$BIN_SRC\" \"$RESOURCES_NATIVE_DIR/doh_proxy_bin\"\nchmod 755 \"$FRAMEWORKS_DIR/libdoh_proxy.dylib\" \"$RESOURCES_NATIVE_DIR/doh_proxy_bin\"\ninstall_name_tool -id @rpath/libdoh_proxy.dylib \"$FRAMEWORKS_DIR/libdoh_proxy.dylib\" || true\n\nSIGN_IDENTITY=\"${EXPANDED_CODE_SIGN_IDENTITY:--}\"\ncodesign --force --sign \"$SIGN_IDENTITY\" --timestamp=none \"$FRAMEWORKS_DIR/libdoh_proxy.dylib\"\ncodesign --force --sign \"$SIGN_IDENTITY\" --timestamp=none \"$RESOURCES_NATIVE_DIR/doh_proxy_bin\"\n";
+			showEnvVarsInLog = 0;
+		};
 		3399D490228B24CF009A79C7 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -621,7 +590,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				DEVELOPMENT_TEAM = N6SSY9VFGK;
+				DEVELOPMENT_TEAM = "$(FLUXDO_APPLE_DEVELOPMENT_TEAM)";
 				INFOPLIST_FILE = Runner/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -755,7 +724,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				DEVELOPMENT_TEAM = N6SSY9VFGK;
+				DEVELOPMENT_TEAM = "$(FLUXDO_APPLE_DEVELOPMENT_TEAM)";
 				INFOPLIST_FILE = Runner/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

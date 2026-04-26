@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'app_localizations.dart';
+export 'app_localizations.dart';
 import '../services/local_notification_service.dart';
 
 /// 全局本地化文本访问器
@@ -12,10 +13,10 @@ class S {
   static AppLocalizations get current {
     final context = navigatorKey.currentContext;
     assert(context != null, 'navigatorKey.currentContext is null');
-    return AppLocalizations.of(context!);
+    return Translations.of(context!);
   }
 }
 
 extension L10nExtension on BuildContext {
-  AppLocalizations get l10n => AppLocalizations.of(this);
+  AppLocalizations get l10n => Translations.of(this);
 }

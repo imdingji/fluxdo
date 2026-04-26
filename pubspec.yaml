@@ -6,11 +6,21 @@ version: 0.2.12+2026042218
 environment:
   sdk: ^3.10.4
 
+workspace:
+  - packages/ai_model_manager
+  - packages/enhanced_cookie_jar
+  - packages/extended_image_lite
+  - packages/pangutext
+  - packages/paper_shaders
+
 dependencies:
   flutter:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
+  # tool/gen_l10n.dart 直接调用 slang 内部 runner，升级时需一起验证。
+  slang: 4.14.0
+  slang_flutter: 4.14.0
   collection: ^1.19.1
   dio: ^5.9.0
   http: ^1.6.0
@@ -108,9 +118,13 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  melos: ^7.5.1
+  dart_console: ^4.1.4
+
+melos:
+  useRootAsPackage: true
 
 flutter:
-  generate: true
   uses-material-design: true
   assets:
     - assets/logo.svg
