@@ -60,7 +60,7 @@ dart run tool/flutterw.dart run -d windows
 - `just test -- <flutter test args...>`：执行 `flutter test`
 - `just drive -- <flutter drive args...>`：执行 `flutter drive`
 - `just native -- <args...>`：显式准备原生产物
-- `just doctor`：检查 Flutter / Dart / Cargo、l10n 状态、证书状态和 Android release signing 回退
+- `just doctor`：检查 Flutter / Dart / Cargo、l10n 状态、证书状态和 Android 本地签名状态
 - `just analyze -- <args...>`：执行 `flutter analyze`
 - `just release-check`：执行发版前检查
 - `just release`：稳定版发版入口
@@ -97,8 +97,9 @@ just release -- patch --dry-run
 
 ## 平台约定
 
-- Android 只有在 `android/key.properties` 和 keystore 都完整可用时才使用 release signing
-- 当 release 签名材料缺失时，`debug` 继续使用默认 debug signing，`profile/release` 自动回退到 debug signing
+- Android 只有在 `android/key.properties` 和 keystore 都完整可用时才使用本地签名
+- 当本地签名材料完整时，`debug/profile/release` 都会使用本地签名
+- 当本地签名材料缺失时，`debug` 使用默认 debug signing，`profile/release` 自动回退到 debug signing
 - Android 构建会优先使用 Android Studio 自带 JBR；如需手动指定，可设置 `FLUXDO_ANDROID_JAVA_HOME`
 - Apple 平台不再把 `DEVELOPMENT_TEAM` 写死在共享 `pbxproj`
 - 如需 Xcode 真机签名或本地签名构建，复制 [apple/Local.xcconfig.example](/D:/teng/Documents/i/ldx/apple/Local.xcconfig.example:1) 为 `apple/Local.xcconfig` 并填入自己的 `FLUXDO_APPLE_DEVELOPMENT_TEAM`

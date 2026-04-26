@@ -187,7 +187,7 @@ void _printAndroidSigningStatus() {
   final keyPropertiesFile = File(_androidKeyPropertiesPath);
   if (!keyPropertiesFile.existsSync()) {
     stdout.writeln(
-      '[FALLBACK] Android release signing: 缺少 $_androidKeyPropertiesPath，profile/release 将回退 debug signing',
+      '[FALLBACK] Android local signing: 缺少 $_androidKeyPropertiesPath，debug 使用默认 debug signing，profile/release 将回退 debug signing',
     );
     return;
   }
@@ -206,12 +206,12 @@ void _printAndroidSigningStatus() {
   }
 
   if (missingFields.isEmpty) {
-    stdout.writeln('[OK] Android release signing: ${storeFile!.path}');
+    stdout.writeln('[OK] Android local signing: ${storeFile!.path}（debug/profile/release）');
     return;
   }
 
   stdout.writeln(
-    '[FALLBACK] Android release signing: 配置不完整（${missingFields.join(', ')}），profile/release 将回退 debug signing',
+    '[FALLBACK] Android local signing: 配置不完整（${missingFields.join(', ')}），debug 使用默认 debug signing，profile/release 将回退 debug signing',
   );
 }
 

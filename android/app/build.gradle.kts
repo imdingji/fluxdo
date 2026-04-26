@@ -47,9 +47,9 @@ val releaseBuildSigningName = if (hasReleaseSigning) "release" else "debug"
 
 println(
     if (hasReleaseSigning) {
-        "Android release signing: using ${releaseStoreFile?.path}"
+        "Android local signing: using ${releaseStoreFile?.path} for debug/profile/release"
     } else {
-        "Android release signing: incomplete config, profile/release fallback to debug signing"
+        "Android local signing: incomplete config, debug uses default debug signing and profile/release fallback to debug signing"
     }
 )
 
@@ -92,7 +92,7 @@ android {
         }
 
         debug {
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName(releaseBuildSigningName)
         }
 
         getByName("profile") {
