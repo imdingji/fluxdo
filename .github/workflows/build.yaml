@@ -103,7 +103,8 @@ jobs:
         run: |
           dart tool/flutterw.dart build apk --release --target-platform ${{ matrix.flutter-target }} --dart-define=cronetHttpNoPlay=true
           unzip -l build/app/outputs/flutter-apk/app-release.apk | grep "lib/${{ matrix.arch }}/libdoh_proxy.so"
-          unzip -l build/app/outputs/flutter-apk/app-release.apk | grep "res/raw/proxy_ca.der"
+          cmp -s core/doh_proxy/certs/ca.der android/app/src/main/res/raw/proxy_ca.der
+          cmp -s core/doh_proxy/certs/ca.crt assets/certs/proxy_ca.pem
           mkdir -p dist
           mv build/app/outputs/flutter-apk/app-release.apk dist/fluxdo-${{ matrix.arch }}.apk
 
