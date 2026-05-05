@@ -40,7 +40,6 @@ class PreloadedDataService {
   String? _s3CdnUrl; // S3 CDN 域名（如 https://cdn3.linux.do）
   String? _s3BaseUrl; // S3 基础 URL（如 //linuxdo-uploads.s3.linux.do）
   bool _hasDiscourseSetup = false; // 是否提取到 data-discourse-setup 标签
-  String? _cachedHtml; // 缓存原始 HTML（供 FingerprintService 复用）
   bool _loaded = false;
   bool _loading = false;
 
@@ -58,13 +57,7 @@ class PreloadedDataService {
   Map<String, dynamic>? get currentUserSync => _currentUser;
   Map<String, dynamic>? get siteSettingsSync => _siteSettings;
 
-  /// 获取缓存的首页 HTML（供 FingerprintService 复用，取后即清）
-  String? consumeCachedHtml() {
-    final html = _cachedHtml;
-    _cachedHtml = null;
-    return html;
-  }
-  List<Map<String, dynamic>>? get topicTrackingStatesSync =>
+List<Map<String, dynamic>>? get topicTrackingStatesSync =>
       _topicTrackingStates;
 
   /// 设置导航 context（用于弹出 CF 验证页面）
@@ -403,7 +396,6 @@ class PreloadedDataService {
     _enabledReactions = null;
     _topicTrackingStateMeta = null;
     _hasDiscourseSetup = false;
-    _cachedHtml = null;
     // 以下为站点级基础设施数据，不随用户登录状态变化。
     // 下次 HTML 解析时会自然更新，refresh 窗口期内保留可避免
     // UrlHelper CDN 降级和 MessageBus 连接中断。
@@ -452,7 +444,6 @@ class PreloadedDataService {
       );
 
       final html = response.data as String;
-      _cachedHtml = html;
       await _parsePreloadedDataFromHtml(html);
       debugPrint('[PreloadedData] 数据加载成功');
       _loaded = true;

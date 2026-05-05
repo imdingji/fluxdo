@@ -81,8 +81,8 @@ dependencies:
   flutter_image_compress: ^2.4.0
   image: ^4.7.2
   flutter_math_fork: ^0.7.2
-  device_info_plus: ^12.3.0
-  connectivity_plus: ^7.0.0
+  device_info_plus: 12.3.0
+  connectivity_plus: 7.1.0
   ua_client_hints: ^1.4.1
   ota_update: ^7.1.0
   app_links: ^7.0.0

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 
@@ -53,6 +54,8 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
   double _progress = 0;
   String? _savedUsername;
   Future<int>? _initialCookieFlushFuture;
+  Completer<void>? _fingerprintCompleter;
+  bool _fingerprintDone = false;
 
   /// 对话框期间用静态截图盖住 WebView，避免 BackdropFilter 对
   /// hybrid composition 实时回读造成的卡顿。
@@ -172,7 +175,27 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
                   InAppWebView(
                     webViewEnvironment: windowsWebViewEnvironment,
                     initialSettings: WebViewSettings.visible,
-                    initialUserScripts: WebViewSettings.ios15PolyfillScripts,
+                    initialUserScripts: UnmodifiableListView([
+                      ...WebViewSettings.ios15PolyfillScripts,
+                      UserScript(
+                        source: '''
+                          new MutationObserver(function(_, obs) {
+                            var el = document.querySelector('[data-preloaded]');
+                            if (!el) return;
+                            obs.disconnect();
+                            var parts = [el.outerHTML];
+                            document.querySelectorAll('meta[name]').forEach(function(m) {
+                              parts.push(m.outerHTML);
+                            });
+                            var setup = document.getElementById('data-discourse-setup');
+                            if (setup) parts.push(setup.outerHTML);
+                            window.__rawPreloaded = parts.join('\\n');
+                          }).observe(document.documentElement, {childList: true, subtree: true});
+                        ''',
+                        injectionTime:
+                            UserScriptInjectionTime.AT_DOCUMENT_START,
+                      ),
+                    ]),
                     onReceivedServerTrustAuthRequest: (_, challenge) =>
                         WebViewSettings.handleServerTrustAuthRequest(challenge),
                     onWebViewCreated: (controller) async {
@@ -198,6 +221,15 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
                               }
                             } catch (_) {}
                           }
+                        },
+                      );
+                      controller.addJavaScriptHandler(
+                        handlerName: 'onFingerprintDone',
+                        callback: (_) {
+                          _fingerprintDone = true;
+                          final c = _fingerprintCompleter;
+                          if (c != null && !c.isCompleted) c.complete();
+                          return null;
                         },
                       );
                       // 等待 cookie flush 完成再加载 URL，
@@ -236,6 +268,7 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
                       });
                       _recheckCount = 0;
                       await WebViewSettings.injectScrollFix(controller);
+                      _injectFingerprintHook(controller);
                       // 自动填充登录表单
                       await _autoFillLoginForm(controller, url);
                       // 自动检测登录状态
@@ -481,12 +514,21 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
       }
 
       _loginHandled = true;
+      final fingerprintFuture = _waitForFingerprintPost();
       final finalToken = await _finalizeLoginBeforeExit(
         controller,
         username: username,
         currentUrl: currentUrl,
         webViewToken: tToken,
       );
+      await fingerprintFuture;
+
+      String? pageHtml;
+      try {
+        pageHtml = await controller.evaluateJavascript(
+          source: 'window.__rawPreloaded || null',
+        ) as String?;
+      } catch (_) {}
 
       if (mounted) {
         ToastService.showSuccess(S.current.webviewLogin_loginSuccess);
@@ -494,7 +536,11 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
       }
 
       unawaited(
-        _finalizeLoginAfterExit(currentUrl: currentUrl, token: finalToken),
+        _finalizeLoginAfterExit(
+          currentUrl: currentUrl,
+          token: finalToken,
+          pageHtml: pageHtml,
+        ),
       );
     } finally {
       _loginInProgress = false;
@@ -557,9 +603,14 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
   Future<void> _finalizeLoginAfterExit({
     required String? currentUrl,
     required String token,
+    String? pageHtml,
   }) async {
     try {
-      final reusedPreloaded = false;
+      var reusedPreloaded = false;
+      if (pageHtml != null && pageHtml.isNotEmpty) {
+        reusedPreloaded =
+            await PreloadedDataService().hydrateFromHtml(pageHtml);
+      }
       if (!reusedPreloaded) {
         debugPrint('[Login] 当前页面无可复用首页数据，回退到 HTTP refresh');
         await PreloadedDataService().refresh();
@@ -637,6 +688,46 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
         CsrfTokenService().setCsrfToken(csrf.toString());
       }
     } catch (_) {}
+  }
+
+  void _injectFingerprintHook(InAppWebViewController controller) {
+    controller.evaluateJavascript(source: '''
+      (function() {
+        if (window.__fpHooked) return;
+        window.__fpHooked = true;
+        function notify() {
+          try { window.flutter_inappwebview.callHandler('onFingerprintDone'); } catch(e) {}
+        }
+        var _f = window.fetch;
+        window.fetch = function(input, init) {
+          var result = _f.apply(this, arguments);
+          if (init && init.method && init.method.toUpperCase() === 'POST' &&
+              typeof init.body === 'string' && init.body.indexOf('visitor_id=') !== -1) {
+            result.then(notify, notify);
+          }
+          return result;
+        };
+        var _o = XMLHttpRequest.prototype.open, _s = XMLHttpRequest.prototype.send;
+        XMLHttpRequest.prototype.open = function(m, u) { this._m = m; return _o.apply(this, arguments); };
+        XMLHttpRequest.prototype.send = function(body) {
+          if (this._m === 'POST' && typeof body === 'string' && body.indexOf('visitor_id=') !== -1) {
+            this.addEventListener('loadend', notify);
+          }
+          return _s.apply(this, arguments);
+        };
+      })();
+    ''');
+  }
+
+  Future<void> _waitForFingerprintPost() async {
+    if (_fingerprintDone) return;
+    final completer = Completer<void>();
+    _fingerprintCompleter = completer;
+    try {
+      await completer.future.timeout(const Duration(seconds: 15));
+    } on TimeoutException {
+      debugPrint('[Login] 等待指纹上报超时，继续登录流程');
+    }
   }
 
   Future<void> _handleLoadedResource(

@@ -78,22 +78,4 @@ mixin _UtilsMixin on _DiscourseServiceBase {
     throw Exception(S.current.error_unknownResponseFormat);
   }
 
-  /// 上报浏览器指纹到 fingerprint 插件端点
-  ///
-  /// [endpoint] 动态路径（从页面 JS 拦截获取）
-  /// [body] 原始 URL 编码的请求体（visitor_id=xxx&version=xxx&data=xxx）
-  Future<void> postFingerprint({
-    required String endpoint,
-    required String body,
-  }) async {
-    await _dio.post(
-      endpoint,
-      data: body,
-      options: Options(
-        contentType: Headers.formUrlEncodedContentType,
-        extra: const {'isSilent': true},
-      ),
-    );
-  }
-
 }

@@ -172,7 +172,6 @@ class DiscourseService extends _DiscourseServiceBase
 
   CsrfTokenService get cookieSync => _cookieSync;
 
-  /// 公开 Dio 实例（供 FingerprintService 等内部服务使用）
   Dio get dio => _dio;
 
   @override
