@@ -10,6 +10,13 @@
       "iconURL": "https://lingyan000.github.io/fluxdo/icon.png",
       "versions": [
         {
+          "version": "0.2.15",
+          "date": "2026-05-09T17:45:57Z",
+          "downloadURL": "https://github.com/lingyan000/fluxdo/releases/download/v0.2.15/fluxdo-unsigned.ipa",
+          "size": 39700334,
+          "localizedDescription": "- 🐛 CI 更新日志修复\n- ✨ 为「新话题」筛选新增二级子过滤下拉，对齐 Linux.do 网页版行为。 (#243)\n- ✨ boost 切换到帖子回复 (#238)\n- ✨ 新增剪贴板话题链接识别服务 (#237)\n\n- 🐛 CI 修复\n\n- ✨ 取消主动指纹上报\n\n- ✨ Cookie 同步到 webview 逻辑优化\n- ✨ 用户签名显示支持，close #234\n- ✨ 图片查看器体验优化\n- ✨ 树形视图体验优化\n- ✨ 编辑器支持插入 Callout，close #95\n- 🐛 修复回复话题和 messageBus 的竞态问题，fix #233\n- ✨ AI 模型快捷词支持导出导入\n- ✨ AI 助手模型调用 prompt 缓存支持\n- ✨ 优化 AI 助手关闭连接逻辑\n- ✨ AI 助手支持选择思考深度\n- ✨ 模型配置界面优化\n- ✨ AI 助手提示词界面优化，生图模式优化\n- ✨ AI 助手优化\n- 🐛 CI 修复\n- 🐛 CI 修复\n- 🐛 修复开发环境问题\n- ✨ 发布脚本优化\n- ✨ 国际化功能优化，项目工程优化\n- ✨ 快捷键功能优化\n\n<div align=center>\n\n[![Release Downloads](https://img.shields.io/github/downloads/lingyan000/fluxdo/v0.2.15/total?style=flat-square&logo=github)](https://img.shields.io/github/downloads/lingyan000/fluxdo/v0.2.15/)\n\n</div>\n\n**Download based on your device:**\n\n<div align=left>\n<table>\n    <thead align=left>\n        <tr>\n            <th>OS</th>\n            <th>Download</th>\n        </tr>\n    </thead>\n    <tbody align=left>\n        <tr>\n        <td>Android</td>\n            <td>\n                <a href=\"https://github.com/lingyan000/fluxdo/releases/download/v0.2.15/fluxdo-arm64-v8a.apk\"><img src=\"https://img.shields.io/badge/APK-ARMv8-168039.svg?logo=android\"></a><br>"
+        },
+        {
           "version": "0.2.13",
           "date": "2026-04-24T11:44:03Z",
           "downloadURL": "https://github.com/lingyan000/fluxdo/releases/download/v0.2.13/fluxdo-unsigned.ipa",
