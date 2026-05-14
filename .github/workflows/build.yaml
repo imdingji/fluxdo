@@ -249,11 +249,26 @@ jobs:
         with:
           packages: 'ndk;25.2.9519653'
 
-      - name: Setup Android Signing
+      - name: Prepare Android test build config
         run: |
-          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/app/upload-keystore.jks
-          echo "${{ secrets.ANDROID_KEY_PROPERTIES }}" > android/key.properties
-          echo "${{ secrets.GOOGLE_SERVICES_JSON }}" | base64 -d > android/app/google-services.json
+          if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ] && [ -n "${{ secrets.ANDROID_KEY_PROPERTIES }}" ]; then
+            echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/app/upload-keystore.jks
+            echo "${{ secrets.ANDROID_KEY_PROPERTIES }}" > android/key.properties
+            echo "Using release signing secrets for manual Android build"
+          else
+            rm -f android/key.properties android/app/upload-keystore.jks
+            echo "Release signing secrets not configured, manual Android build will fall back to debug signing"
+          fi
+
+          if [ -n "${{ secrets.GOOGLE_SERVICES_JSON }}" ]; then
+            echo "${{ secrets.GOOGLE_SERVICES_JSON }}" | base64 -d > android/app/google-services.json
+            echo "Using GOOGLE_SERVICES_JSON secret"
+          elif [ -f android/app/google-services.json ]; then
+            echo "Using repository google-services.json"
+          else
+            echo "google-services.json is missing and GOOGLE_SERVICES_JSON secret is not configured"
+            exit 1
+          fi
 
       - name: Build Android
         if: ${{ github.event.inputs.android_arch == 'all' || github.event.inputs.android_arch == matrix.arch }}
