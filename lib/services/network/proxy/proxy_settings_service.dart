@@ -58,6 +58,7 @@ class ProxyTestResult {
 class ProxySettings {
   const ProxySettings({
     this.enabled = false,
+    this.forcedEnabled = false,
     this.protocol = UpstreamProxyProtocol.http,
     this.host = '',
     this.port = 0,
@@ -68,6 +69,7 @@ class ProxySettings {
 
   /// 是否启用上游代理
   final bool enabled;
+  final bool forcedEnabled;
   /// 上游代理协议
   final UpstreamProxyProtocol protocol;
   /// 上游代理服务器地址
@@ -101,8 +103,28 @@ class ProxySettings {
 
   bool get isShadowsocks => protocol == UpstreamProxyProtocol.shadowsocks;
 
+  bool get supportsForcedMode =>
+      protocol == UpstreamProxyProtocol.http ||
+      protocol == UpstreamProxyProtocol.socks5;
+
+  bool get isForcedValid =>
+      forcedEnabled && enabled && isValid && supportsForcedMode;
+
+  String? get forcedProxyUri {
+    if (!isForcedValid) return null;
+    final scheme = protocol == UpstreamProxyProtocol.socks5 ? 'socks5' : 'http';
+    final user = username?.trim();
+    if (user != null && user.isNotEmpty) {
+      final encodedUser = Uri.encodeComponent(user);
+      final encodedPass = Uri.encodeComponent(password ?? '');
+      return '$scheme://$encodedUser:$encodedPass@$host:$port';
+    }
+    return '$scheme://$host:$port';
+  }
+
   ProxySettings copyWith({
     bool? enabled,
+    bool? forcedEnabled,
     UpstreamProxyProtocol? protocol,
     String? host,
     int? port,
@@ -112,6 +134,7 @@ class ProxySettings {
   }) {
     return ProxySettings(
       enabled: enabled ?? this.enabled,
+      forcedEnabled: forcedEnabled ?? this.forcedEnabled,
       protocol: protocol ?? this.protocol,
       host: host ?? this.host,
       port: port ?? this.port,
@@ -129,6 +152,7 @@ class ProxySettingsService {
   static final ProxySettingsService instance = ProxySettingsService._internal();
 
   static const _enabledKey = 'http_proxy_enabled';
+  static const _forcedEnabledKey = 'forced_proxy_enabled';
   static const _protocolKey = 'upstream_proxy_protocol';
   static const _hostKey = 'http_proxy_host';
   static const _portKey = 'http_proxy_port';
@@ -166,6 +190,7 @@ class ProxySettingsService {
     _prefs = prefs;
 
     final enabled = prefs.getBool(_enabledKey) ?? false;
+    final forcedEnabled = prefs.getBool(_forcedEnabledKey) ?? false;
     final protocol = UpstreamProxyProtocol.fromStorage(
       prefs.getString(_protocolKey),
     );
@@ -177,6 +202,7 @@ class ProxySettingsService {
 
     notifier.value = ProxySettings(
       enabled: enabled,
+      forcedEnabled: forcedEnabled,
       protocol: protocol,
       host: host,
       port: port,
@@ -196,6 +222,31 @@ class ProxySettingsService {
     _touch();
   }
 
+  Future<void> setForcedEnabled(bool enabled) async {
+    final prefs = _prefs;
+    if (prefs == null) return;
+
+    notifier.value = notifier.value.copyWith(forcedEnabled: enabled);
+    await prefs.setBool(_forcedEnabledKey, enabled);
+    _resetTestResult();
+    _touch();
+  }
+
+  String? validateForcedMode() {
+    final settings = current;
+    if (!settings.forcedEnabled) return null;
+    if (!settings.supportsForcedMode) {
+      return '强制代理仅支持 HTTP 和 SOCKS5';
+    }
+    if (!settings.enabled || !settings.hasServer) {
+      return '强制代理需要先配置有效的 HTTP 或 SOCKS5 代理';
+    }
+    if (!settings.isValid) {
+      return '强制代理配置无效';
+    }
+    return null;
+  }
+
   /// 设置上游代理服务器地址、协议和端口
   Future<void> setServer({
     required UpstreamProxyProtocol protocol,
@@ -210,6 +261,7 @@ class ProxySettingsService {
 
     notifier.value = ProxySettings(
       enabled: notifier.value.enabled,
+      forcedEnabled: notifier.value.forcedEnabled,
       protocol: protocol,
       host: host,
       port: port,
@@ -280,6 +332,16 @@ class ProxySettingsService {
   void _touch() {
     _version++;
     notifier.value = notifier.value.copyWith();
+  }
+
+  @visibleForTesting
+  void resetForTesting() {
+    _prefs = null;
+    _version = 0;
+    _activeTest = null;
+    notifier.value = const ProxySettings();
+    testResultNotifier.value = null;
+    isTesting.value = false;
   }
 
   Future<ProxyTestResult> _runAvailabilityTest(ProxySettings settings) async {
