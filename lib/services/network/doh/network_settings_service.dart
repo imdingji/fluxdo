@@ -117,6 +117,15 @@ class ResolvedHostConfig {
   final Uint8List? echConfig;
 }
 
+enum ForcedProxyRuntimeStatus {
+  disabled,
+  starting,
+  ready,
+  invalidConfig,
+  gatewayFailed,
+  webViewFailed,
+}
+
 class _ResolvedHostEntry {
   _ResolvedHostEntry({
     required this.ips,
@@ -206,6 +215,8 @@ class NetworkSettingsService {
   String? _resolvedHostCacheSignature;
 
   final ValueNotifier<bool> isApplying = ValueNotifier(false);
+  final ValueNotifier<ForcedProxyRuntimeStatus> forcedProxyStatus =
+      ValueNotifier(ForcedProxyRuntimeStatus.disabled);
 
   int get version => _version;
   DohResolver get resolver => _resolver;
@@ -219,17 +230,33 @@ class NetworkSettingsService {
 
   NetworkSettings get current => notifier.value;
 
+  bool get isForcedProxyEnabled => _proxyService.current.forcedEnabled;
+
+  bool get isForcedProxyReady =>
+      _proxyService.current.isForcedValid &&
+      _rustProxyService.isRunning &&
+      current.proxyPort != null &&
+      forcedProxyStatus.value == ForcedProxyRuntimeStatus.ready;
+
+  bool get isWebViewProxyReady =>
+      !isForcedProxyEnabled || _webViewProxySet;
+
   /// 当前是否使用 gateway（反向代理）模式
   /// Gateway 模式：DOH 开启 + 用户开关开启 + 代理运行中
   bool get isGatewayMode =>
-      current.dohEnabled && current.gatewayEnabled && _rustProxyService.isRunning;
+      !isForcedProxyEnabled &&
+      current.dohEnabled &&
+      current.gatewayEnabled &&
+      _rustProxyService.isRunning;
 
-  String? get _effectiveEchServerUrl =>
-      current.dohEnabled ? (current.echServerUrl ?? current.selectedServerUrl) : null;
+  String? get _effectiveEchServerUrl => current.dohEnabled && !isForcedProxyEnabled
+      ? (current.echServerUrl ?? current.selectedServerUrl)
+      : null;
 
   // Rust 代理始终为 WebView 提供 DOH/代理支持，不受 rhttp 影响
   // rhttp 只改变 Dio 用哪个适配器，不改变代理生命周期
-  bool get shouldRunLocalProxy => current.dohEnabled || _proxyService.current.isValid;
+  bool get shouldRunLocalProxy =>
+      current.dohEnabled || _proxyService.current.isValid;
 
   List<DohServer> get servers => [
         ..._defaultServers,
@@ -421,6 +448,44 @@ class NetworkSettingsService {
       // 给 UI 一帧时间渲染 Loading
       await Future<void>.delayed(const Duration(milliseconds: 16));
     }
+    final forcedSettings = _proxyService.current;
+    final forcedEnabled = forcedSettings.forcedEnabled;
+    if (forcedEnabled) {
+      if (!forcedSettings.isForcedValid) {
+        _setForcedProxyStatus(ForcedProxyRuntimeStatus.invalidConfig);
+        _clearResolvedHostCache();
+        try {
+          await _rustProxyService.stop();
+          await _clearWebViewProxy();
+          if (_pendingStart) {
+            _setPendingStart(false);
+          }
+          final prefs = _prefs;
+          if (current.proxyPort != null) {
+            notifier.value = notifier.value.copyWith(proxyPort: null);
+            if (prefs != null) {
+              await prefs.remove(_proxyPortKey);
+            }
+            _touch();
+          }
+        } finally {
+          _applyDepth--;
+          if (_applyDepth == 0) {
+            final elapsed = DateTime.now().difference(startedAt);
+            const minDuration = Duration(milliseconds: 400);
+            if (elapsed < minDuration) {
+              await Future<void>.delayed(minDuration - elapsed);
+            }
+            isApplying.value = false;
+          }
+        }
+        return;
+      }
+      _setForcedProxyStatus(ForcedProxyRuntimeStatus.starting);
+      _clearResolvedHostCache();
+    } else if (forcedProxyStatus.value != ForcedProxyRuntimeStatus.disabled) {
+      _setForcedProxyStatus(ForcedProxyRuntimeStatus.disabled);
+    }
     if (!shouldRunLocalProxy) {
       try {
         await _rustProxyService.stop();
@@ -459,14 +524,16 @@ class NetworkSettingsService {
 
       // ECH 场景：rhttp 按请求 host 查询 ECH；gateway 模式仅作为 WebView 后备。
       final shouldTryEch = effectiveEchServer != null;
-      final useGateway = current.dohEnabled && current.gatewayEnabled;
+      final useGateway =
+          !forcedEnabled && current.dohEnabled && current.gatewayEnabled;
+      final enableDoh = !forcedEnabled && current.dohEnabled;
 
       if (!shouldTryEch) {
         _clearResolvedHostCache();
       }
 
       // macOS: 启动前确保 CA 在钥匙串中被信任
-      if (Platform.isMacOS && current.dohEnabled) {
+      if (Platform.isMacOS && enableDoh) {
         final trusted = await ProxyCertificate.ensureKeychainTrust();
         if (!trusted) {
           debugPrint('[DOH] macOS: CA 未被钥匙串信任，无法启动代理');
@@ -490,12 +557,12 @@ class NetworkSettingsService {
       // Rust 代理始终为 WebView 提供 DOH/代理支持，enableDoh 不受 rhttp 影响
       final success = await _rustProxyService.start(
         preferredPort: current.proxyPort ?? 0,
-        enableDoh: current.dohEnabled,
+        enableDoh: enableDoh,
         gatewayMode: useGateway,
         preferIPv6: current.preferIPv6,
-        dohServer: current.dohEnabled ? current.selectedServerUrl : null,
-        dohServerEch: current.dohEnabled ? current.echServerUrl : null,
-        serverIp: current.serverIp,
+        dohServer: enableDoh ? current.selectedServerUrl : null,
+        dohServerEch: enableDoh ? current.echServerUrl : null,
+        serverIp: forcedEnabled ? null : current.serverIp,
         upstreamProtocol: upstream.isValid ? upstream.protocol.storageValue : null,
         upstreamHost: upstream.isValid ? upstream.host : null,
         upstreamPort: upstream.isValid ? upstream.port : null,
@@ -510,6 +577,9 @@ class NetworkSettingsService {
         debugPrint('[DOH] Failed to start Rust proxy');
         _setStartFailed(true);
         _setPendingStart(false);
+        if (forcedEnabled) {
+          _setForcedProxyStatus(ForcedProxyRuntimeStatus.gatewayFailed);
+        }
         await _clearWebViewProxy();
         return;
       }
@@ -532,7 +602,14 @@ class NetworkSettingsService {
         }
       }
 
-      await _applyWebViewProxy();
+      final webViewReady = await _applyWebViewProxy();
+      if (forcedEnabled) {
+        _setForcedProxyStatus(
+          webViewReady
+              ? ForcedProxyRuntimeStatus.ready
+              : ForcedProxyRuntimeStatus.webViewFailed,
+        );
+      }
     } finally {
       _applyDepth--;
       if (_applyDepth == 0) {
@@ -556,6 +633,12 @@ class NetworkSettingsService {
   void _setPendingStart(bool value) {
     if (_pendingStart == value) return;
     _pendingStart = value;
+    _touch();
+  }
+
+  void _setForcedProxyStatus(ForcedProxyRuntimeStatus status) {
+    if (forcedProxyStatus.value == status) return;
+    forcedProxyStatus.value = status;
     _touch();
   }
 
@@ -603,10 +686,11 @@ class NetworkSettingsService {
 
   bool _webViewProxySet = false;
 
-  Future<void> _applyWebViewProxy() async {
-    if (!shouldRunLocalProxy) return;
+  Future<bool> _applyWebViewProxy() async {
+    _webViewProxySet = false;
+    if (!shouldRunLocalProxy) return false;
     final port = _activeProxyPort;
-    if (port == null) return;
+    if (port == null) return false;
 
     if (Platform.isWindows) {
       try {
@@ -617,11 +701,13 @@ class NetworkSettingsService {
       } catch (e) {
         debugPrint('[DOH] WebView2 代理设置失败: $e');
       }
-      return;
+      return _webViewProxySet;
     }
 
     // macOS 14 以下 / iOS 17 以下调用 setProxyOverride 可能报错
-    if (!Platform.isAndroid && !await _isMacOS14OrAbove() && !await _isiOS17OrAbove()) return;
+    if (!Platform.isAndroid && !await _isMacOS14OrAbove() && !await _isiOS17OrAbove()) {
+      return !isForcedProxyEnabled;
+    }
 
     try {
       await inappwebview.ProxyController.instance().setProxyOverride(
@@ -636,6 +722,7 @@ class NetworkSettingsService {
     } catch (e) {
       debugPrint('[DOH] WebView 代理设置失败: $e');
     }
+    return _webViewProxySet;
   }
 
   Future<void> _clearWebViewProxy() async {
@@ -701,6 +788,10 @@ class NetworkSettingsService {
     String host, {
     bool forceRefresh = false,
   }) async {
+    if (isForcedProxyEnabled) {
+      _clearResolvedHostCache();
+      return const ResolvedHostConfig.empty();
+    }
     final normalizedHost = _normalizeHost(host);
     if (normalizedHost == null) {
       return const ResolvedHostConfig.empty();
@@ -753,7 +844,7 @@ class NetworkSettingsService {
       () => <String, DateTime>{},
     );
     penalties[normalizedIp] = DateTime.now().add(_failedHostIpPenaltyTtl);
-    if (current.dohEnabled) {
+    if (current.dohEnabled && !isForcedProxyEnabled) {
       final dohServer = current.selectedServerUrl;
       final dohServerEch = _effectiveEchServerUrl ?? current.selectedServerUrl;
       unawaited(
@@ -783,7 +874,7 @@ class NetworkSettingsService {
       _hostIpPenaltyCache.remove(normalizedHost);
     }
 
-    if (current.dohEnabled) {
+    if (current.dohEnabled && !isForcedProxyEnabled) {
       final dohServer = current.selectedServerUrl;
       final dohServerEch = _effectiveEchServerUrl ?? current.selectedServerUrl;
       unawaited(
@@ -814,7 +905,7 @@ class NetworkSettingsService {
   Future<int> forceRefreshDnsCache() async {
     final hosts = _collectCommonHosts();
     await clearDnsCache();
-    if (!current.dohEnabled || hosts.isEmpty) {
+    if (isForcedProxyEnabled || !current.dohEnabled || hosts.isEmpty) {
       return 0;
     }
 
@@ -1023,7 +1114,7 @@ class NetworkSettingsService {
     return ttl;
   }
 
-  String? get _currentResolvedHostCacheSignature => current.dohEnabled
+  String? get _currentResolvedHostCacheSignature => current.dohEnabled && !isForcedProxyEnabled
       ? '${current.selectedServerUrl}|${_effectiveEchServerUrl ?? ""}|${current.preferIPv6 ? "v6" : "v4"}'
       : null;
 

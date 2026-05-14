@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fluxdo/services/network/doh/network_settings_service.dart';
 import 'package:fluxdo/services/network/proxy/forced_proxy_guard.dart';
 
 void main() {
@@ -84,6 +85,15 @@ void main() {
         ),
         returnsNormally,
       );
+    });
+
+    test('runtime state labels are stable', () {
+      expect(ForcedProxyRuntimeStatus.disabled.name, 'disabled');
+      expect(ForcedProxyRuntimeStatus.starting.name, 'starting');
+      expect(ForcedProxyRuntimeStatus.ready.name, 'ready');
+      expect(ForcedProxyRuntimeStatus.invalidConfig.name, 'invalidConfig');
+      expect(ForcedProxyRuntimeStatus.gatewayFailed.name, 'gatewayFailed');
+      expect(ForcedProxyRuntimeStatus.webViewFailed.name, 'webViewFailed');
     });
   });
 }
