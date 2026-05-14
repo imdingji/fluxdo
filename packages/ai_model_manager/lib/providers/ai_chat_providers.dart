@@ -354,6 +354,8 @@ final topicAiChatProvider = StateNotifierProvider.autoDispose
   (ref, topicId) {
     final chatService = ref.watch(aiChatServiceProvider);
     final storageService = ref.watch(aiChatStorageServiceProvider);
+    final useAppNetwork = ref.watch(aiUseAppNetworkProvider);
+    final adapterFactory = ref.watch(aiDioAdapterFactoryProvider);
     final titleModel = ref.read(aiTitleModelProvider);
     final imagePromptOptimizerModel =
         ref.read(aiImagePromptOptimizerModelProvider);
@@ -363,6 +365,9 @@ final topicAiChatProvider = StateNotifierProvider.autoDispose
       topicId: topicId,
       titleModel: titleModel,
       imagePromptOptimizerModel: imagePromptOptimizerModel,
+      requestClientFactory: useAppNetwork && adapterFactory != null
+          ? () => DioBackedHttpClient(adapterFactory())
+          : null,
     );
     ref.onDispose(() {
       notifier.saveBeforeDispose();
@@ -379,6 +384,7 @@ class TopicAiChatNotifier extends StateNotifier<TopicAiChatState> {
   final int topicId;
   final ({AiProvider provider, AiModel model})? titleModel;
   final ({AiProvider provider, AiModel model})? imagePromptOptimizerModel;
+  final http.Client Function()? requestClientFactory;
 
   StreamSubscription<AiChatChunk>? _streamSubscription;
   http.Client? _requestClient;
@@ -395,6 +401,7 @@ class TopicAiChatNotifier extends StateNotifier<TopicAiChatState> {
     required this.topicId,
     this.titleModel,
     this.imagePromptOptimizerModel,
+    this.requestClientFactory,
   }) : super(const TopicAiChatState()) {
     _loadFromStorage();
   }
@@ -630,7 +637,7 @@ class TopicAiChatNotifier extends StateNotifier<TopicAiChatState> {
       }
 
       // 为本次请求创建独立 HTTP client，stop 时 close 可立即断开连接
-      _requestClient = http.Client();
+      _requestClient = requestClientFactory?.call() ?? http.Client();
       final stream = chatService.sendChatStream(
         provider: selectedModel.provider,
         model: selectedModel.model.id,

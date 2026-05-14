@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../../utils/time_utils.dart';
 import '../../../common/smart_avatar.dart';
 import '../../../../l10n/s.dart';
+import '../../../../services/discourse_cache_manager.dart';
 
 /// 构建 Chat Transcript 聊天记录引用卡片
 ///
@@ -195,8 +196,8 @@ Widget _buildReactionChip(ThemeData theme, _ChatReaction reaction) {
     child: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Image.network(
-          reaction.emojiUrl,
+        Image(
+          image: emojiImageProvider(reaction.emojiUrl),
           width: 16,
           height: 16,
           errorBuilder: (_, _, _) => const SizedBox(width: 16, height: 16),

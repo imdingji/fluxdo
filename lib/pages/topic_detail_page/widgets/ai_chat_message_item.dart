@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:ai_model_manager/ai_model_manager.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:gal/gal.dart';
@@ -10,6 +11,7 @@ import 'package:super_clipboard/super_clipboard.dart';
 import '../../../l10n/s.dart';
 import '../../../pages/image_viewer_page.dart';
 import '../../../services/toast_service.dart';
+import '../../../services/discourse_cache_manager.dart';
 
 import '../../../widgets/markdown_editor/markdown_renderer.dart';
 
@@ -966,8 +968,11 @@ class _AttachmentThumbnails extends StatelessWidget {
   Widget _attachmentImage(AiChatAttachment att, {required double size}) {
     final remote = att.remoteUrl;
     if (remote != null && remote.isNotEmpty) {
-      return Image.network(
-        remote,
+      return Image(
+        image: CachedNetworkImageProvider(
+          remote,
+          cacheManager: ExternalImageCacheManager(),
+        ),
         width: size,
         height: size,
         fit: BoxFit.cover,

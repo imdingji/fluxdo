@@ -176,5 +176,23 @@ void main() {
       );
       expect(adapter.closed, isTrue);
     });
+    test('DioBackedHttpClient is reusable for forced proxy adapter injection', () async {
+      final adapter = _RecordingAdapter((_, __) async {
+        return ResponseBody.fromString(
+          '{"ok":true}',
+          200,
+          headers: {
+            'content-type': ['application/json'],
+          },
+        );
+      });
+      final client = DioBackedHttpClient(adapter);
+
+      final response =
+          await client.get(Uri.parse('https://api.example.com/test'));
+
+      expect(response.statusCode, 200);
+      expect(response.body, '{"ok":true}');
+    });
   });
 }
