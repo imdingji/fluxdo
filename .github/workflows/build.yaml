@@ -23,38 +23,23 @@ env:
 
 jobs:
   build:
-    if: ${{ github.event_name != 'workflow_dispatch' || matrix.platform == 'android' }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - platform: android
-            os: ubuntu-latest
-            arch: arm64-v8a
-            rust-target: aarch64-linux-android
-            flutter-target: android-arm64
-          - platform: android
-            os: ubuntu-latest
-            arch: armeabi-v7a
-            rust-target: armv7-linux-androideabi
-            flutter-target: android-arm
-          - platform: android
-            os: ubuntu-latest
-            arch: x86_64
-            rust-target: x86_64-linux-android
-            flutter-target: android-x64
-          - platform: ios
-            os: macos-latest
-          - platform: macos
-            os: macos-latest
-            arch: arm64
-          - platform: macos
-            os: macos-15-intel
-            arch: x86_64
-          - platform: windows
-            os: windows-2022
-            arch: x86_64
+        include: ${{ fromJSON(
+          github.event_name == 'workflow_dispatch' &&
+          (
+            github.event.inputs.android_arch == 'arm64-v8a' &&
+            '[{"platform":"android","os":"ubuntu-latest","arch":"arm64-v8a","rust-target":"aarch64-linux-android","flutter-target":"android-arm64"}]' ||
+            github.event.inputs.android_arch == 'armeabi-v7a' &&
+            '[{"platform":"android","os":"ubuntu-latest","arch":"armeabi-v7a","rust-target":"armv7-linux-androideabi","flutter-target":"android-arm"}]' ||
+            github.event.inputs.android_arch == 'x86_64' &&
+            '[{"platform":"android","os":"ubuntu-latest","arch":"x86_64","rust-target":"x86_64-linux-android","flutter-target":"android-x64"}]' ||
+            '[{"platform":"android","os":"ubuntu-latest","arch":"arm64-v8a","rust-target":"aarch64-linux-android","flutter-target":"android-arm64"},{"platform":"android","os":"ubuntu-latest","arch":"armeabi-v7a","rust-target":"armv7-linux-androideabi","flutter-target":"android-arm"},{"platform":"android","os":"ubuntu-latest","arch":"x86_64","rust-target":"x86_64-linux-android","flutter-target":"android-x64"}]'
+          ) ||
+          '[{"platform":"android","os":"ubuntu-latest","arch":"arm64-v8a","rust-target":"aarch64-linux-android","flutter-target":"android-arm64"},{"platform":"android","os":"ubuntu-latest","arch":"armeabi-v7a","rust-target":"armv7-linux-androideabi","flutter-target":"android-arm"},{"platform":"android","os":"ubuntu-latest","arch":"x86_64","rust-target":"x86_64-linux-android","flutter-target":"android-x64"},{"platform":"ios","os":"macos-latest"},{"platform":"macos","os":"macos-latest","arch":"arm64"},{"platform":"macos","os":"macos-15-intel","arch":"x86_64"},{"platform":"windows","os":"windows-2022","arch":"x86_64"}]'
+        ) }}
 
     steps:
       - name: Checkout
@@ -112,7 +97,7 @@ jobs:
         run: git config --global url."https://x-access-token:${{ github.token }}@github.com/".insteadOf "https://github.com/"
 
       - name: Build Android
-        if: ${{ startsWith(matrix.platform, 'android') && (github.event_name != 'workflow_dispatch' || github.event.inputs.android_arch == 'all' || github.event.inputs.android_arch == matrix.arch) }}
+        if: startsWith(matrix.platform, 'android')
         run: |
           dart tool/flutterw.dart build apk --release --target-platform ${{ matrix.flutter-target }} --dart-define=cronetHttpNoPlay=true
           unzip -l build/app/outputs/flutter-apk/app-release.apk | grep "lib/${{ matrix.arch }}/libdoh_proxy.so"
@@ -194,7 +179,6 @@ jobs:
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DMyAppVersion=$version windows\setup.iss
 
       - name: Upload artifact
-        if: ${{ github.event_name != 'workflow_dispatch' || matrix.platform != 'android' || github.event.inputs.android_arch == 'all' || github.event.inputs.android_arch == matrix.arch }}
         uses: actions/upload-artifact@v4
         with:
           name: artifact-${{ matrix.platform }}${{ matrix.arch && format('-{0}', matrix.arch) }}
