@@ -65,4 +65,34 @@ void main() {
       );
     });
   });
+
+  group('WebViewHttpAdapter forced proxy guard', () {
+    test('throws before fetch when forced WebView proxy is not ready', () {
+      expect(
+        () => WebViewHttpAdapter.ensureForcedProxyReadyForTesting(
+          forcedEnabled: true,
+          forcedConfigValid: true,
+          localGatewayReady: true,
+          webViewProxyReady: false,
+        ),
+        throwsA(isA<Object>().having(
+          (e) => e.toString(),
+          'message',
+          contains('WebView 无法使用强制代理'),
+        )),
+      );
+    });
+
+    test('allows fetch path when forced WebView proxy is ready', () {
+      expect(
+        () => WebViewHttpAdapter.ensureForcedProxyReadyForTesting(
+          forcedEnabled: true,
+          forcedConfigValid: true,
+          localGatewayReady: true,
+          webViewProxyReady: true,
+        ),
+        returnsNormally,
+      );
+    });
+  });
 }

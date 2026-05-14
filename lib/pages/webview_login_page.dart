@@ -18,6 +18,9 @@ import '../services/network/cookie/cookie_jar_service.dart';
 import '../services/network/cookie/csrf_token_service.dart';
 import '../services/network/cookie/raw_set_cookie_queue.dart';
 import '../services/network/adapters/webview_http_adapter.dart';
+import '../services/network/doh/network_settings_service.dart';
+import '../services/network/proxy/forced_proxy_guard.dart';
+import '../services/network/proxy/proxy_settings_service.dart';
 import '../services/toast_service.dart';
 import '../services/hcaptcha_accessibility_service.dart';
 import '../services/webview_settings.dart';
@@ -93,6 +96,39 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
   Widget build(BuildContext context) {
     final windowsWebViewEnvironment =
         WindowsWebViewEnvironmentService.instance.environment;
+    final forcedProxyBlockReason = _forcedProxyBlockReason();
+    if (forcedProxyBlockReason != null) {
+      return Scaffold(
+        appBar: AppBar(title: Text(context.l10n.webviewLogin_title)),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.vpn_lock_rounded,
+                  size: 48,
+                  color: Theme.of(context).colorScheme.error,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  forcedProxyBlockReason,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '请检查代理配置或关闭强制代理后重试。',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -330,6 +366,23 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
         ],
       ),
     );
+  }
+
+  String? _forcedProxyBlockReason() {
+    final proxy = ProxySettingsService.instance.current;
+    final network = NetworkSettingsService.instance;
+    try {
+      ForcedProxyGuard.ensureReady(
+        forcedEnabled: proxy.forcedEnabled,
+        forcedConfigValid: proxy.isForcedValid,
+        localGatewayReady: network.isForcedProxyReady,
+        webViewRequired: true,
+        webViewProxyReady: network.isWebViewProxyReadyForForcedMode,
+      );
+      return null;
+    } on ForcedProxyException catch (e) {
+      return e.message;
+    }
   }
 
   Future<void> _clearCredentials() async {

@@ -14,6 +14,9 @@ import '../cookie/boundary_sync_service.dart';
 import '../cookie/cookie_jar_service.dart';
 import '../cookie/raw_set_cookie_queue.dart';
 import '../cookie/strategy/platform_cookie_strategy.dart';
+import '../doh/network_settings_service.dart';
+import '../proxy/forced_proxy_guard.dart';
+import '../proxy/proxy_settings_service.dart';
 import '../../webview_settings.dart';
 import '../../windows_webview_environment_service.dart';
 import 'adapter_log_metadata.dart';
@@ -64,6 +67,22 @@ class WebViewHttpAdapter implements HttpClientAdapter {
   static const String defaultApiFetchCacheMode = 'no-store';
   static Future<void>? _startupSessionCookieSelfCheckFuture;
   static bool _startupSessionCookieSelfCheckDone = false;
+
+  @visibleForTesting
+  static void ensureForcedProxyReadyForTesting({
+    required bool forcedEnabled,
+    required bool forcedConfigValid,
+    required bool localGatewayReady,
+    required bool webViewProxyReady,
+  }) {
+    ForcedProxyGuard.ensureReady(
+      forcedEnabled: forcedEnabled,
+      forcedConfigValid: forcedConfigValid,
+      localGatewayReady: localGatewayReady,
+      webViewRequired: true,
+      webViewProxyReady: webViewProxyReady,
+    );
+  }
 
   HeadlessInAppWebView? _headlessWebView;
   InAppWebViewController? _controller;
@@ -190,6 +209,7 @@ class WebViewHttpAdapter implements HttpClientAdapter {
     Future<void>? cancelFuture,
   ) async {
     setRequestAdapterLogName(options, 'webview');
+    _ensureForcedProxyReady();
 
     if (!_isInitialized || _controller == null) {
       await initialize();
@@ -390,6 +410,17 @@ class WebViewHttpAdapter implements HttpClientAdapter {
         headers: responseHeaders,
       );
     }
+  }
+
+  void _ensureForcedProxyReady() {
+    final proxy = ProxySettingsService.instance.current;
+    final network = NetworkSettingsService.instance;
+    ensureForcedProxyReadyForTesting(
+      forcedEnabled: proxy.forcedEnabled,
+      forcedConfigValid: proxy.isForcedValid,
+      localGatewayReady: network.isForcedProxyReady,
+      webViewProxyReady: network.isWebViewProxyReadyForForcedMode,
+    );
   }
 
   @override
