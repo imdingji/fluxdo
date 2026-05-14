@@ -160,6 +160,7 @@ class ExternalImageCacheManager extends CacheManager with ImageCacheManager {
       stalePeriod: const Duration(days: 30),
       maxNrOfCacheObjects: 200,
       repo: JsonCacheInfoRepository(databaseName: key),
+      fileService: HttpFileService(httpClient: DioHttpClient()),
     ),
   );
 }

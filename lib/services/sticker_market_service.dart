@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/sticker.dart';
+import 'network/discourse_dio.dart';
 
 /// 顶层函数，供 compute() 在后台 Isolate 中解析分组详情
 StickerGroupDetail _parseGroupDetail(Map<String, dynamic> data) {
@@ -28,10 +29,13 @@ class StickerMarketService {
   late final Dio _dio;
 
   StickerMarketService(this._prefs) {
-    _dio = Dio(BaseOptions(
+    _dio = DiscourseDio.create(
+      baseUrl: '',
       connectTimeout: const Duration(seconds: 15),
       receiveTimeout: const Duration(seconds: 15),
-    ));
+      maxConcurrent: null,
+      enableCookies: false,
+    );
   }
 
   /// 当前 baseUrl

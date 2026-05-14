@@ -4,8 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../../constants.dart';
 import '../../app_logger.dart';
-import '../adapters/platform_adapter.dart';
-import 'app_cookie_manager.dart';
+import '../discourse_dio.dart';
 import 'cookie_jar_service.dart';
 import '../../storage/resilient_secure_storage.dart';
 
@@ -65,19 +64,19 @@ class CsrfTokenService {
       await cookieJarService.initialize();
     }
 
-    final dio = Dio(
-      BaseOptions(
-        baseUrl: AppConstants.baseUrl,
-        connectTimeout: const Duration(seconds: 30),
-        receiveTimeout: const Duration(seconds: 30),
-        followRedirects: false,
-        validateStatus: (status) =>
-            status != null && status >= 200 && status < 400,
-      ),
+    final dio = DiscourseDio.create(
+      baseUrl: AppConstants.baseUrl,
+      connectTimeout: const Duration(seconds: 30),
+      receiveTimeout: const Duration(seconds: 30),
+      enableRetry: true,
+      enableCfChallenge: true,
+      defaultHeaders: {
+        'Accept': 'application/json, text/javascript, */*; q=0.01',
+        'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+        'X-Requested-With': 'XMLHttpRequest',
+      },
     );
 
-    configurePlatformAdapter(dio);
-    dio.interceptors.add(AppCookieManager(cookieJarService.cookieJar));
     _mainSiteDio = dio;
     return dio;
   }

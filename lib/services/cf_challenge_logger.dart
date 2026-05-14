@@ -1,7 +1,9 @@
-import 'dart:convert';
 import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'network/doh/network_settings_service.dart';
+import 'network/discourse_dio.dart';
+import 'network/proxy/proxy_settings_service.dart';
 import 'package:path_provider/path_provider.dart';
 
 /// CF 验证日志服务
@@ -249,6 +251,9 @@ class CfChallengeLogger {
 
   static Future<List<String>> _resolveServerIps(String host) async {
     if (host.isEmpty) return const [];
+    if (ProxySettingsService.instance.current.forcedEnabled) {
+      return const [];
+    }
     final parsed = InternetAddress.tryParse(host);
     if (parsed != null) return [parsed.address];
 
@@ -270,15 +275,23 @@ class CfChallengeLogger {
 
   static Future<String?> _fetchClientIp(Uri baseUri) async {
     final traceUri = baseUri.replace(path: '/cdn-cgi/trace', query: '');
-    final client = HttpClient()..connectionTimeout = const Duration(seconds: 5);
+    final dio = DiscourseDio.create(
+      baseUrl: '',
+      connectTimeout: const Duration(seconds: 5),
+      receiveTimeout: const Duration(seconds: 5),
+      maxConcurrent: null,
+      enableCookies: false,
+    );
     try {
-      final request = await client.getUrl(traceUri);
-      request.followRedirects = true;
-      final response = await request.close();
-      if (response.statusCode < 200 || response.statusCode >= 300) {
+      final response = await dio.get<String>(
+        traceUri.toString(),
+        options: Options(responseType: ResponseType.plain),
+      );
+      if ((response.statusCode ?? 0) < 200 ||
+          (response.statusCode ?? 0) >= 300) {
         return null;
       }
-      final body = await utf8.decodeStream(response);
+      final body = response.data ?? '';
       for (final line in body.split('\n')) {
         if (line.startsWith('ip=')) {
           return line.substring(3).trim();
@@ -286,8 +299,6 @@ class CfChallengeLogger {
       }
     } catch (_) {
       return null;
-    } finally {
-      client.close(force: true);
     }
     return null;
   }

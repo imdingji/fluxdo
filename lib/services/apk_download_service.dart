@@ -2,6 +2,8 @@ import 'package:dio/dio.dart';
 import 'package:ota_update/ota_update.dart';
 
 import '../l10n/s.dart';
+import 'network/discourse_dio.dart';
+import 'network/proxy/proxy_settings_service.dart';
 import 'update_service.dart';
 
 /// APK 下载状态
@@ -32,13 +34,25 @@ class ApkDownloadService {
   final Dio _dio;
   bool _cancelled = false;
 
-  ApkDownloadService({Dio? dio}) : _dio = dio ?? Dio();
+  ApkDownloadService({Dio? dio})
+      : _dio = dio ?? DiscourseDio.create(
+          baseUrl: '',
+          maxConcurrent: null,
+          enableCookies: false,
+        );
 
   /// 下载并安装 APK
   ///
   /// 返回进度 Stream
   Stream<ApkDownloadProgress> downloadAndInstall(ApkAsset asset) async* {
     _cancelled = false;
+    if (ProxySettingsService.instance.current.forcedEnabled) {
+      yield ApkDownloadProgress(
+        status: ApkDownloadStatus.error,
+        error: '强制代理模式下暂不支持系统 OTA 下载，已阻止直连。',
+      );
+      return;
+    }
 
     // 阶段 1：获取 SHA256 校验和（如果有）
     String? expectedSha256;

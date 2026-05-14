@@ -7,6 +7,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../l10n/s.dart';
+import 'network/discourse_dio.dart';
 
 /// APK 资源信息
 class ApkAsset {
@@ -98,7 +99,15 @@ class UpdateService {
   final SharedPreferences? _prefs;
 
   UpdateService({Dio? dio, SharedPreferences? prefs})
-      : _dio = dio ?? Dio(),
+      : _dio = dio ?? DiscourseDio.create(
+          baseUrl: '',
+          defaultHeaders: {
+            'User-Agent': 'FluxDO-App',
+            'Accept': 'application/vnd.github.v3+json',
+          },
+          maxConcurrent: null,
+          enableCookies: false,
+        ),
         _prefs = prefs;
 
   /// 获取自动检查更新设置
