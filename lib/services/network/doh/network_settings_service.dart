@@ -241,6 +241,8 @@ class NetworkSettingsService {
   bool get isWebViewProxyReady =>
       !isForcedProxyEnabled || _webViewProxySet;
 
+  bool get isWebViewProxyReadyForForcedMode => isWebViewProxyReady;
+
   /// 当前是否使用 gateway（反向代理）模式
   /// Gateway 模式：DOH 开启 + 用户开关开启 + 代理运行中
   bool get isGatewayMode =>

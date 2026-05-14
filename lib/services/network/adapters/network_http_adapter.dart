@@ -2,10 +2,12 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import '../../network_logger.dart';
 import '../doh/network_settings_service.dart';
+import '../proxy/forced_proxy_guard.dart';
 import '../proxy/proxy_settings_service.dart';
 
 class NetworkHttpAdapter implements HttpClientAdapter {
@@ -30,6 +32,13 @@ class NetworkHttpAdapter implements HttpClientAdapter {
     if (_closed) {
       throw StateError("Can't establish connection after the adapter was closed.");
     }
+    ForcedProxyGuard.ensureReady(
+      forcedEnabled: _proxySettings.current.forcedEnabled,
+      forcedConfigValid: _proxySettings.current.isForcedValid,
+      localGatewayReady: _settings.isForcedProxyReady,
+      webViewRequired: false,
+      webViewProxyReady: _settings.isWebViewProxyReadyForForcedMode,
+    );
     return _fetch(options, requestStream, cancelFuture);
   }
 
@@ -236,9 +245,23 @@ class NetworkHttpAdapter implements HttpClientAdapter {
     _cachedClient?.close(force: force);
   }
 
+  @visibleForTesting
+  static bool shouldUseLocalGatewayFor(
+    ProxySettings proxySettings,
+    int? proxyPort,
+    bool dohEnabled,
+  ) {
+    if (proxyPort == null) return false;
+    if (proxySettings.forcedEnabled) return proxySettings.isForcedValid;
+    return dohEnabled || proxySettings.isValid;
+  }
+
   bool get _shouldUseLocalGateway {
     final settings = _settings.current;
-    return settings.proxyPort != null &&
-        (settings.dohEnabled || _proxySettings.current.isValid);
+    return shouldUseLocalGatewayFor(
+      _proxySettings.current,
+      settings.proxyPort,
+      settings.dohEnabled,
+    );
   }
 }

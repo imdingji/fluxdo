@@ -137,6 +137,9 @@ AdapterType _resolveAdapterType(
   RhttpSettingsService rhttpSettings,
 ) {
   // rhttp 优先（满足条件时）
+  if (proxySettings.current.forcedEnabled) {
+    return AdapterType.network;
+  }
   if (rhttpSettings.shouldUseRhttp(settings.current, proxySettings.current)) {
     return AdapterType.rhttp;
   }

@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:rhttp/rhttp.dart' as rhttp;
 
 import '../doh/network_settings_service.dart';
+import '../proxy/forced_proxy_guard.dart';
 import '../proxy/proxy_settings_service.dart';
 import '../rhttp/rhttp_settings_service.dart';
 
@@ -40,6 +41,13 @@ class RhttpAdapter implements HttpClientAdapter {
     if (_closed) {
       throw StateError("Can't establish connection after the adapter was closed.");
     }
+    ForcedProxyGuard.ensureReady(
+      forcedEnabled: _proxySettings.current.forcedEnabled,
+      forcedConfigValid: _proxySettings.current.isForcedValid,
+      localGatewayReady: _networkSettings.isForcedProxyReady,
+      webViewRequired: false,
+      webViewProxyReady: _networkSettings.isWebViewProxyReadyForForcedMode,
+    );
     final host = options.uri.host;
     final config = await _prepareClientConfig(host);
     final delegate = await _ensureDelegate(config);
@@ -295,6 +303,13 @@ class RhttpAdapter implements HttpClientAdapter {
     NetworkSettings ns,
     ProxySettings ps,
   ) {
+    final forcedUri = resolveForcedProxyUri(ps, ns.proxyPort);
+    if (forcedUri != null) {
+      return rhttp.ProxySettings.proxy(forcedUri);
+    }
+    if (ps.forcedEnabled) {
+      return const rhttp.ProxySettings.noProxy();
+    }
     if (!ps.isValid) return const rhttp.ProxySettings.noProxy();
 
     if (ps.isShadowsocks) {
@@ -313,6 +328,13 @@ class RhttpAdapter implements HttpClientAdapter {
       );
     }
     return rhttp.ProxySettings.proxy('$scheme://${ps.host}:${ps.port}');
+  }
+
+  @visibleForTesting
+  static String? resolveForcedProxyUri(ProxySettings settings, int? localPort) {
+    if (!settings.forcedEnabled) return null;
+    if (!settings.isForcedValid || localPort == null) return null;
+    return 'http://127.0.0.1:$localPort';
   }
 
   @override
