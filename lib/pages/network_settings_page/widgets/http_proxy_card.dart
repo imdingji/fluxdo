@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:ai_model_manager/ai_model_manager.dart';
 
 import '../../../l10n/s.dart';
 import '../../../services/network/doh/network_settings_service.dart';
@@ -23,6 +25,7 @@ class HttpProxyCard extends StatelessWidget {
         proxyService.isTesting,
         proxyService.testResultNotifier,
         networkService.notifier,
+        networkService.forcedProxyStatus,
         vpnService.enabledNotifier,
         vpnService.vpnActiveNotifier,
       ]),
@@ -33,6 +36,9 @@ class HttpProxyCard extends StatelessWidget {
         return _HttpProxyCardInner(
           proxySettings: proxySettings,
           dohEnabled: dohEnabled,
+          forcedEnabled: proxySettings.forcedEnabled,
+          forcedStatus: networkService.forcedProxyStatus.value,
+          localGatewayPort: networkService.notifier.value.proxyPort,
           isSuppressedByVpn: isSuppressedByVpn,
         );
       },
@@ -44,11 +50,17 @@ class _HttpProxyCardInner extends StatelessWidget {
   const _HttpProxyCardInner({
     required this.proxySettings,
     required this.dohEnabled,
+    required this.forcedEnabled,
+    required this.forcedStatus,
+    required this.localGatewayPort,
     this.isSuppressedByVpn = false,
   });
 
   final ProxySettings proxySettings;
   final bool dohEnabled;
+  final bool forcedEnabled;
+  final ForcedProxyRuntimeStatus forcedStatus;
+  final int? localGatewayPort;
   final bool isSuppressedByVpn;
 
   @override
@@ -126,6 +138,64 @@ class _HttpProxyCardInner extends StatelessWidget {
                   }
                 },
               ),
+              SwitchListTile(
+                title: const Text('强制代理'),
+                subtitle: Text(
+                  forcedEnabled
+                      ? '已启用，FluxDO 直连请求会被阻止'
+                      : '关闭时使用普通应用网络策略',
+                ),
+                secondary: Icon(
+                  forcedEnabled
+                      ? Icons.vpn_lock_rounded
+                      : Icons.lock_open_rounded,
+                  color: forcedEnabled ? theme.colorScheme.error : null,
+                ),
+                value: forcedEnabled,
+                onChanged: (value) async {
+                  if (value && !proxySettings.hasServer) {
+                    final saved = await _showProxyConfigDialog(
+                      context,
+                      proxySettings,
+                    );
+                    if (!saved) {
+                      return;
+                    }
+                  }
+                  if (value && !proxySettings.enabled) {
+                    await ProxySettingsService.instance.setEnabled(true);
+                  }
+                  await ProxySettingsService.instance.setForcedEnabled(value);
+                  if (value && context.mounted) {
+                    ProviderScope.containerOf(
+                      context,
+                      listen: false,
+                    ).read(aiUseAppNetworkProvider.notifier).state = true;
+                  }
+                },
+              ),
+              if (forcedEnabled)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.route_rounded,
+                        size: 16,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _forcedStatusText(forcedStatus, localGatewayPort),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               if (proxySettings.hasServer || proxySettings.enabled) ...[
                 Divider(
                   height: 1,
@@ -250,6 +320,26 @@ class _HttpProxyCardInner extends StatelessWidget {
       }
     }
     return result;
+  }
+
+  String _forcedStatusText(
+    ForcedProxyRuntimeStatus status,
+    int? port,
+  ) {
+    switch (status) {
+      case ForcedProxyRuntimeStatus.disabled:
+        return '强制代理未启用';
+      case ForcedProxyRuntimeStatus.starting:
+        return '本地代理网关启动中';
+      case ForcedProxyRuntimeStatus.ready:
+        return port == null ? '本地代理网关运行中' : '本地网关端口 $port';
+      case ForcedProxyRuntimeStatus.invalidConfig:
+        return '代理配置无效';
+      case ForcedProxyRuntimeStatus.gatewayFailed:
+        return '本地代理网关启动失败';
+      case ForcedProxyRuntimeStatus.webViewFailed:
+        return 'WebView 代理接入失败';
+    }
   }
 
   Future<bool> _showProxyConfigDialog(

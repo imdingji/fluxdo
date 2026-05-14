@@ -55,6 +55,16 @@ void main() {
       expect(prefs.getBool('forced_proxy_enabled'), isTrue);
     });
 
+    test('enabling forced mode also enables AI app network preference', () async {
+      final prefs = await SharedPreferences.getInstance();
+      final service = ProxySettingsService.instance;
+      await service.initialize(prefs);
+
+      await service.setForcedEnabled(true);
+
+      expect(prefs.getBool('ai_use_app_network'), isTrue);
+    });
+
     test('SOCKS5 proxy without credentials can be forced', () async {
       final prefs = await SharedPreferences.getInstance();
       final service = ProxySettingsService.instance;

@@ -13,6 +13,8 @@ class AiAdvancedSettingsPage extends ConsumerWidget {
     final useAppNetwork = ref.watch(aiUseAppNetworkProvider);
     final hasAdapterFactory = ref.watch(aiDioAdapterFactoryProvider) != null;
     final partialEnabled = ref.watch(aiPartialImagesProvider);
+    final forcedProxyEnabled =
+        isForcedProxyEnabledForAi(ref.watch(aiSharedPreferencesProvider));
 
     return Scaffold(
       appBar: AppBar(title: Text(AiL10n.current.advancedSettings)),
@@ -29,9 +31,14 @@ class AiAdvancedSettingsPage extends ConsumerWidget {
               children: [
                 SwitchListTile(
                   title: Text(AiL10n.current.useAppNetwork),
-                  subtitle: Text(AiL10n.current.useAppNetworkSubtitle),
-                  value: useAppNetwork && hasAdapterFactory,
-                  onChanged: hasAdapterFactory
+                  subtitle: Text(
+                    forcedProxyEnabled
+                        ? '强制代理模式下必须使用应用网络栈'
+                        : AiL10n.current.useAppNetworkSubtitle,
+                  ),
+                  value: (useAppNetwork || forcedProxyEnabled) &&
+                      hasAdapterFactory,
+                  onChanged: hasAdapterFactory && !forcedProxyEnabled
                       ? (value) async {
                           final prefs =
                               ref.read(aiSharedPreferencesProvider);

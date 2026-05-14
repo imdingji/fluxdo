@@ -153,6 +153,7 @@ class ProxySettingsService {
 
   static const _enabledKey = 'http_proxy_enabled';
   static const _forcedEnabledKey = 'forced_proxy_enabled';
+  static const _aiUseAppNetworkKey = 'ai_use_app_network';
   static const _protocolKey = 'upstream_proxy_protocol';
   static const _hostKey = 'http_proxy_host';
   static const _portKey = 'http_proxy_port';
@@ -228,6 +229,9 @@ class ProxySettingsService {
 
     notifier.value = notifier.value.copyWith(forcedEnabled: enabled);
     await prefs.setBool(_forcedEnabledKey, enabled);
+    if (enabled) {
+      await prefs.setBool(_aiUseAppNetworkKey, true);
+    }
     _resetTestResult();
     _touch();
   }

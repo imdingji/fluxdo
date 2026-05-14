@@ -7,6 +7,7 @@ import '../../../l10n/s.dart';
 import '../../../services/network/doh/network_settings_service.dart';
 import '../../../services/network/doh_proxy/cert_preference_service.dart';
 import '../../../services/network/doh_proxy/per_device_cert_service.dart';
+import '../../../services/network/proxy/proxy_settings_service.dart';
 import '../../../services/network/vpn_auto_toggle_service.dart';
 import '../../../services/toast_service.dart';
 import '../doh_detail_settings_page.dart';
@@ -25,6 +26,7 @@ class DohSettingsCard extends StatelessWidget {
       animation: Listenable.merge([
         service.notifier,
         service.isApplying,
+        ProxySettingsService.instance.notifier,
         vpnService.enabledNotifier,
         vpnService.vpnActiveNotifier,
       ]),
@@ -103,6 +105,28 @@ class _DohSettingsCardInner extends StatelessWidget {
           // 仅在开启 DOH 后显示以下内容
           if (settings.dohEnabled) ...[
             // 证书引导（iOS: 安装引导，其他平台: per-device 开关）
+            if (ProxySettingsService.instance.current.forcedEnabled)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      size: 16,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '强制代理模式下暂停本地 DOH 解析，以避免 DNS 泄漏',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             _CertGuide(isApplying: isApplying),
 
             // 状态区域

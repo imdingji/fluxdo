@@ -213,8 +213,10 @@ final topicSelectedAiModelProvider = StateProvider.autoDispose
 final aiChatServiceProvider = Provider((ref) {
   final useAppNetwork = ref.watch(aiUseAppNetworkProvider);
   final adapterFactory = ref.watch(aiDioAdapterFactoryProvider);
+  final forcedProxyEnabled =
+      isForcedProxyEnabledForAi(ref.watch(aiSharedPreferencesProvider));
   final enablePartialImages = ref.watch(aiPartialImagesProvider);
-  if (useAppNetwork && adapterFactory != null) {
+  if ((useAppNetwork || forcedProxyEnabled) && adapterFactory != null) {
     return AiChatService(
       bridgedClient: DioBackedHttpClient(adapterFactory()),
       enablePartialImages: enablePartialImages,
@@ -356,6 +358,8 @@ final topicAiChatProvider = StateNotifierProvider.autoDispose
     final storageService = ref.watch(aiChatStorageServiceProvider);
     final useAppNetwork = ref.watch(aiUseAppNetworkProvider);
     final adapterFactory = ref.watch(aiDioAdapterFactoryProvider);
+    final forcedProxyEnabled =
+        isForcedProxyEnabledForAi(ref.watch(aiSharedPreferencesProvider));
     final titleModel = ref.read(aiTitleModelProvider);
     final imagePromptOptimizerModel =
         ref.read(aiImagePromptOptimizerModelProvider);
@@ -365,7 +369,8 @@ final topicAiChatProvider = StateNotifierProvider.autoDispose
       topicId: topicId,
       titleModel: titleModel,
       imagePromptOptimizerModel: imagePromptOptimizerModel,
-      requestClientFactory: useAppNetwork && adapterFactory != null
+      requestClientFactory:
+          (useAppNetwork || forcedProxyEnabled) && adapterFactory != null
           ? () => DioBackedHttpClient(adapterFactory())
           : null,
     );

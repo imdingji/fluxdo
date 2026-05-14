@@ -30,6 +30,9 @@ final aiUseAppNetworkProvider = StateProvider<bool>((ref) {
   return prefs.getBool('ai_use_app_network') ?? false;
 });
 
+bool isForcedProxyEnabledForAi(SharedPreferences prefs) =>
+    prefs.getBool('forced_proxy_enabled') ?? false;
+
 /// 是否启用图像生成的渐进式预览（partial frames）。
 /// 仅 OpenAI 已验证 organization 的账号支持；未验证账号开启会导致
 /// 服务端返回 200 但不发任何事件、最终报「未收到 AI 回复」。
@@ -62,8 +65,11 @@ final aiProviderListProvider =
 final aiProviderApiServiceProvider = Provider((ref) {
   final useAppNetwork = ref.watch(aiUseAppNetworkProvider);
   final adapterFactory = ref.watch(aiDioAdapterFactoryProvider);
+  final forcedProxyEnabled =
+      isForcedProxyEnabledForAi(ref.watch(aiSharedPreferencesProvider));
   return AiProviderApiService(
-    adapterFactory: useAppNetwork ? adapterFactory : null,
+    adapterFactory:
+        (useAppNetwork || forcedProxyEnabled) ? adapterFactory : null,
   );
 });
 
