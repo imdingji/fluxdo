@@ -73,6 +73,7 @@ ios/rust_libs/
 
 # Codex
 .codex/
+.worktrees/
 
 # Melos
 .melos_tool/
